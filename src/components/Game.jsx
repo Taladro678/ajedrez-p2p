@@ -45,6 +45,11 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
     const [unreadCount, setUnreadCount] = useState(0);
     const [lastToast, setLastToast] = useState(null);
 
+    // Analysis State
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [analysisResults, setAnalysisResults] = useState([]);
+    const [currentAnalysisMove, setCurrentAnalysisMove] = useState(0);
+
     // Refs
     const engine = useRef(null);
     const messagesEndRef = useRef(null);
@@ -203,6 +208,33 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
         }
     }, [game, internalSettings, winner]);
 
+    // Analyze position in background
+    const analyzePosition = (fen, moveNumber) => {
+        if (!engine.current) return;
+
+        engine.current.postMessage(`position fen ${fen}`);
+        engine.current.postMessage('go depth 15');
+
+        const handleMessage = (e) => {
+            const line = e.data;
+            if (line.includes('score cp')) {
+                const match = line.match(/score cp (-?\d+)/);
+                if (match) {
+                    const score = parseInt(match[1]) / 100;
+                    setAnalysisResults(prev => {
+                        const newResults = [...prev];
+                        newResults[moveNumber] = { fen, score, moveNumber };
+                        return newResults;
+                    });
+                }
+            }
+        };
+
+        engine.current.addEventListener('message', handleMessage, { once: true });
+    };
+
+    // Make move with analysis
+
     // --- TIMER LOGIC ---
     useEffect(() => {
         if (game.isGameOver() || winner || whiteTime === null || blackTime === null) return;
@@ -294,6 +326,12 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                         }
                     }
 
+                    // Analyze position in background
+                    if (engine.current) {
+                        const moveNumber = copy.history().length;
+                        setTimeout(() => analyzePosition(copy.fen(), moveNumber), 100);
+                    }
+
                     return copy;
                 }
             } catch (e) { }
@@ -313,17 +351,13 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
             }
 
             try {
-                const gameCopy = new Chess(game.fen());
-                const move = gameCopy.move({
+                const move = makeMoveAndAnalyze({
                     from: selectedSquare,
                     to: square,
                     promotion: 'q'
                 });
 
                 if (move) {
-                    // Guardar último movimiento
-                    setLastMove({ from: move.from, to: move.to });
-
                     // Play Sound
                     if (move.captured) playSound('capture');
                     else playSound('move');
@@ -573,6 +607,21 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                     )}
 
                     <button onClick={() => setOrientation(o => o === 'white' ? 'black' : 'white')} style={{ padding: '4px 8px', fontSize: '0.8rem' }}>Rotar</button>
+
+                    {/* Analysis Button - Only show when game is over */}
+                    {(game.isGameOver() || winner) && analysisResults.length > 0 && (
+                        <button
+                            onClick={() => setIsAnalyzing(!isAnalyzing)}
+                            style={{
+                                padding: '4px 8px',
+                                fontSize: '0.8rem',
+                                background: isAnalyzing ? '#ef4444' : '#22c55e'
+                            }}
+                        >
+                            {isAnalyzing ? 'Cerrar Análisis' : '📊 Ver Análisis'}
+                        </button>
+                    )}
+
                     <button className="secondary" onClick={onDisconnect} style={{ padding: '4px 8px', fontSize: '0.8rem' }}>Salir</button>
                 </div>
             </header>
@@ -647,6 +696,105 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                     </div>
 
                 </div>
+
+                {/* ANALYSIS PANEL */}
+                {isAnalyzing && analysisResults.length > 0 && (
+                    <div style={{
+                        position: 'absolute',
+                        top: '60px',
+                        right: '10px',
+                        width: '300px',
+                        maxHeight: '500px',
+                        background: '#1e293b',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '8px',
+                        padding: '1rem',
+                        zIndex: 1000,
+                        overflowY: 'auto'
+                    }}>
+                        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem' }}>📊 Análisis de Stockfish</h3>
+
+                        {/* Evaluation Graph */}
+                        <div style={{
+                            background: '#0f172a',
+                            padding: '1rem',
+                            borderRadius: '6px',
+                            marginBottom: '1rem'
+                        }}>
+                            <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '0.5rem' }}>
+                                Evaluación por jugada
+                            </div>
+                            <div style={{
+                                display: 'flex',
+                                height: '100px',
+                                alignItems: 'center',
+                                gap: '2px'
+                            }}>
+                                {analysisResults.map((result, i) => {
+                                    if (!result) return null;
+                                    const score = Math.max(-5, Math.min(5, result.score));
+                                    const height = ((score + 5) / 10) * 100;
+                                    return (
+                                        <div
+                                            key={i}
+                                            style={{
+                                                flex: 1,
+                                                height: '100%',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'flex-end'
+                                            }}
+                                        >
+                                            <div
+                                                style={{
+                                                    height: `${height}%`,
+                                                    background: score > 0 ? '#22c55e' : '#ef4444',
+                                                    borderRadius: '2px',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                onClick={() => setCurrentAnalysisMove(i)}
+                                                title={`Jugada ${i + 1}: ${score > 0 ? '+' : ''}${score.toFixed(2)}`}
+                                            />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Move List */}
+                        <div style={{ fontSize: '0.85rem' }}>
+                            <div style={{ color: '#94a3b8', marginBottom: '0.5rem' }}>Jugadas analizadas:</div>
+                            {analysisResults.map((result, i) => {
+                                if (!result) return null;
+                                return (
+                                    <div
+                                        key={i}
+                                        style={{
+                                            padding: '0.5rem',
+                                            background: currentAnalysisMove === i ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255,255,255,0.03)',
+                                            borderRadius: '4px',
+                                            marginBottom: '0.25rem',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}
+                                        onClick={() => setCurrentAnalysisMove(i)}
+                                    >
+                                        <span>Jugada {i + 1}</span>
+                                        <span style={{
+                                            color: result.score > 0 ? '#22c55e' : '#ef4444',
+                                            fontWeight: 'bold'
+                                        }}>
+                                            {result.score > 0 ? '+' : ''}{result.score.toFixed(2)}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 {/* CHAT */}
                 <div className={`chat-section ${isChatOpen ? 'open' : ''}`}>
