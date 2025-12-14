@@ -432,7 +432,8 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
         if (isSelected) {
             backgroundColor = 'rgba(255, 255, 0, 0.5)';
         } else if (isLastMoveFrom || isLastMoveTo) {
-            backgroundColor = isDark ? 'rgba(205, 210, 106, 0.8)' : 'rgba(246, 246, 130, 0.8)';
+            // Resaltado más visible como en Lichess
+            backgroundColor = isDark ? 'rgba(170, 162, 58, 1)' : 'rgba(205, 210, 106, 1)';
         } else {
             backgroundColor = isDark ? '#779954' : '#e9edcc';
         }
