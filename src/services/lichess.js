@@ -154,5 +154,54 @@ export const lichessApi = {
             headers: { Authorization: `Bearer ${token}` }
         });
         return response.body;
+    },
+
+    // Stream of events (challenges, game starts, etc.)
+    async streamEvents() {
+        const token = lichessAuth.getToken();
+        const response = await fetch(`${LICHESS_API_URL}/api/stream/event`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.body;
+    },
+
+    // Accept a challenge
+    async acceptChallenge(challengeId) {
+        const token = lichessAuth.getToken();
+        const res = await fetch(`${LICHESS_API_URL}/api/challenge/${challengeId}/accept`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return res.json();
+    },
+
+    // Decline a challenge
+    async declineChallenge(challengeId) {
+        const token = lichessAuth.getToken();
+        await fetch(`${LICHESS_API_URL}/api/challenge/${challengeId}/decline`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` }
+        });
+    },
+
+    // Get TV channels (featured games)
+    async getTvChannels() {
+        const res = await fetch(`${LICHESS_API_URL}/api/tv/channels`);
+        return res.json();
+    },
+
+    // Stream a TV game
+    async streamTvGame(channel = 'best') {
+        const res = await fetch(`${LICHESS_API_URL}/api/stream/tv/${channel}`);
+        return res.body;
+    },
+
+    // Get user's ongoing games
+    async getOngoingGames() {
+        const token = lichessAuth.getToken();
+        const res = await fetch(`${LICHESS_API_URL}/api/account/playing`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return res.json();
     }
 };

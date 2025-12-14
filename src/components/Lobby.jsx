@@ -4,6 +4,8 @@ import { collection, addDoc, onSnapshot, deleteDoc, doc, query } from 'firebase/
 import { signOut } from 'firebase/auth';
 import Settings from './Settings';
 import { lichessAuth, lichessApi } from '../services/lichess';
+import LichessChallenges from './LichessChallenges';
+import LichessSpectate from './LichessSpectate';
 
 const Lobby = ({ onConnect, myId, user }) => {
     const [gameMode, setGameMode] = useState('p2p');
@@ -16,6 +18,7 @@ const Lobby = ({ onConnect, myId, user }) => {
     // Lichess State
     const [lichessToken, setLichessToken] = useState(lichessAuth.getToken());
     const [isSearchingLichess, setIsSearchingLichess] = useState(false);
+    const [lichessTab, setLichessTab] = useState('create'); // 'create', 'challenges', 'spectate'
 
     // Initialize playerName - prioritize user.displayName
     const [playerName, setPlayerName] = useState(() => {
@@ -698,7 +701,92 @@ const Lobby = ({ onConnect, myId, user }) => {
                                         </div>
                                     </div>
                                 </div>
-                            ) : (
+                            ) : null}
+
+                            {/* Lichess Tabs */}
+                            {gameMode === 'lichess' && lichessToken && (
+                                <div style={{ marginTop: '1rem' }}>
+                                    {/* Tab Navigation */}
+                                    <div style={{
+                                        display: 'flex',
+                                        gap: '0.5rem',
+                                        marginBottom: '1rem',
+                                        borderBottom: '1px solid rgba(255,255,255,0.1)',
+                                        paddingBottom: '0.5rem'
+                                    }}>
+                                        <button
+                                            onClick={() => setLichessTab('create')}
+                                            style={{
+                                                padding: '0.5rem 1rem',
+                                                background: lichessTab === 'create' ? '#3b82f6' : 'transparent',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                color: 'white',
+                                                cursor: 'pointer',
+                                                fontSize: '0.9rem'
+                                            }}
+                                        >
+                                            Crear Partida
+                                        </button>
+                                        <button
+                                            onClick={() => setLichessTab('challenges')}
+                                            style={{
+                                                padding: '0.5rem 1rem',
+                                                background: lichessTab === 'challenges' ? '#3b82f6' : 'transparent',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                color: 'white',
+                                                cursor: 'pointer',
+                                                fontSize: '0.9rem'
+                                            }}
+                                        >
+                                            Retos
+                                        </button>
+                                        <button
+                                            onClick={() => setLichessTab('spectate')}
+                                            style={{
+                                                padding: '0.5rem 1rem',
+                                                background: lichessTab === 'spectate' ? '#3b82f6' : 'transparent',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                color: 'white',
+                                                cursor: 'pointer',
+                                                fontSize: '0.9rem'
+                                            }}
+                                        >
+                                            Observar
+                                        </button>
+                                    </div>
+
+                                    {/* Tab Content */}
+                                    {lichessTab === 'create' && (
+                                        <button
+                                            className="btn-primary"
+                                            onClick={handleCreateGame}
+                                            disabled={isSearchingLichess}
+                                            style={{ width: '100%' }}
+                                        >
+                                            {isSearchingLichess ? 'Buscando Oponente...' : 'Buscar en Lichess (10+0)'}
+                                        </button>
+                                    )}
+                                    {lichessTab === 'challenges' && (
+                                        <LichessChallenges
+                                            onAccept={(gameId) => {
+                                                onConnect('lichess:' + gameId, settings);
+                                            }}
+                                        />
+                                    )}
+                                    {lichessTab === 'spectate' && (
+                                        <LichessSpectate
+                                            onWatch={(gameId) => {
+                                                onConnect('lichess:' + gameId, { ...settings, spectator: true });
+                                            }}
+                                        />
+                                    )}
+                                </div>
+                            )}
+
+                            {gameMode !== 'lichess' && (
                                 <button
                                     className="btn-primary"
                                     onClick={handleCreateGame}
