@@ -1,0 +1,626 @@
+import React, { useState, useEffect } from 'react';
+import { db, auth } from '../firebase';
+import { collection, addDoc, onSnapshot, deleteDoc, doc, query } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
+import Settings from './Settings';
+import { lichessAuth, lichessApi } from '../services/lichess';
+
+const Lobby = ({ onConnect, myId, user }) => {
+    const [gameMode, setGameMode] = useState('p2p');
+    const [color, setColor] = useState('white');
+    const [timeControl, setTimeControl] = useState('10+0');
+    const [customTime, setCustomTime] = useState(10);
+    const [customInc, setCustomInc] = useState(0);
+    const [elo, setElo] = useState(1200);
+
+    // Lichess State
+    const [lichessToken, setLichessToken] = useState(lichessAuth.getToken());
+    const [isSearchingLichess, setIsSearchingLichess] = useState(false);
+
+    // Initialize playerName from localStorage or default
+    const [playerName, setPlayerName] = useState(() => {
+        return localStorage.getItem('chess_playerName') || 'Jugador ' + Math.floor(Math.random() * 1000);
+    });
+
+    // Save playerName to localStorage whenever it changes
+    useEffect(() => {
+        localStorage.setItem('chess_playerName', playerName);
+    }, [playerName]);
+
+    const [games, setGames] = useState([]);
+    const [isHosting, setIsHosting] = useState(false);
+    const [hostedGameId, setHostedGameId] = useState(null);
+    const [sortBy, setSortBy] = useState('recent'); // recent, time-asc, time-desc
+    const [showStatusTooltip, setShowStatusTooltip] = useState(false);
+    const [connectionStatus, setConnectionStatus] = useState('good'); // good, slow, offline
+    const [showUserMenu, setShowUserMenu] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
+
+    useEffect(() => {
+        // Listen for available games
+        const q = query(collection(db, "games"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const now = Date.now();
+            const TWO_HOURS = 2 * 60 * 60 * 1000;
+
+            let gamesList = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }))
+                .filter(g => {
+                    // Only show waiting games
+                    if (g.status && g.status !== 'waiting') return false;
+                    // Filter out games older than 2 hours
+                    if (g.createdAt && (now - g.createdAt) > TWO_HOURS) {
+                        // Delete old game
+                        deleteDoc(doc(db, "games", g.id)).catch(e => console.error("Error deleting old game:", e));
+                        return false;
+                    }
+                    return true;
+                });
+
+            // Sort based on selection
+            if (sortBy === 'recent') {
+                gamesList.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            } else if (sortBy === 'time-asc') {
+                gamesList.sort((a, b) => {
+                    const timeA = parseInt(a.timeControl?.split('+')[0] || 10);
+                    const timeB = parseInt(b.timeControl?.split('+')[0] || 10);
+                    return timeA - timeB;
+                });
+            } else if (sortBy === 'time-desc') {
+                gamesList.sort((a, b) => {
+                    const timeA = parseInt(a.timeControl?.split('+')[0] || 10);
+                    const timeB = parseInt(b.timeControl?.split('+')[0] || 10);
+                    return timeB - timeA;
+                });
+            }
+
+            setGames(gamesList);
+        });
+
+        return () => unsubscribe();
+    }, [sortBy]);
+
+    // Monitor connection status
+    useEffect(() => {
+        const updateConnectionStatus = () => {
+            if (!navigator.onLine) {
+                setConnectionStatus('offline');
+                return;
+            }
+
+            // Check if Firebase is responding slowly
+            const startTime = Date.now();
+            const timeout = setTimeout(() => {
+                // If games haven't loaded in 3 seconds, mark as slow
+                if (games.length === 0 && gameMode === 'p2p') {
+                    setConnectionStatus('slow');
+                }
+            }, 3000);
+
+            // If we have games or not in P2P mode, connection is good
+            if (games.length > 0 || gameMode !== 'p2p') {
+                clearTimeout(timeout);
+                setConnectionStatus('good');
+            }
+        };
+
+        updateConnectionStatus();
+
+        // Listen for online/offline events
+        window.addEventListener('online', updateConnectionStatus);
+        window.addEventListener('offline', updateConnectionStatus);
+
+        return () => {
+            window.removeEventListener('online', updateConnectionStatus);
+            window.removeEventListener('offline', updateConnectionStatus);
+        };
+    }, [games, gameMode]);
+
+    const handleCreateGame = async () => {
+        const settings = {
+            gameMode,
+            color: color === 'random' ? (Math.random() > 0.5 ? 'white' : 'black') : color,
+            timeControl: timeControl === 'custom' ? customTime + '+' + customInc : timeControl,
+            elo: parseInt(elo)
+        };
+
+        if (gameMode === 'computer') {
+            onConnect('COMPUTER', settings);
+        } else if (gameMode === 'lichess') {
+            // Lichess Logic
+            if (!lichessToken) {
+                lichessAuth.login();
+                return;
+            }
+
+            setIsSearchingLichess(true);
+            try {
+                // Parse time control
+                const [min, inc] = settings.timeControl.split('+').map(Number);
+                const response = await lichessApi.createOpenChallenge({
+                    time: min,
+                    increment: inc,
+                    color: color
+                });
+
+                if (!response.ok) throw new Error("Error starting seek");
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                // Read stream for match
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value);
+                    console.log("Lichess Seek Stream:", chunk);
+
+                    try {
+                        // Might contain multiple JSONs or partial
+                        // Assuming newlines
+                        // Ideally use a buffer like in Adapter, but keeping it simple for now
+                        const lines = chunk.split('\n');
+                        for (const line of lines) {
+                            if (!line.trim()) continue;
+                            const event = JSON.parse(line);
+                            if (event.type === 'gameStart') {
+                                setIsSearchingLichess(false);
+                                onConnect('lichess:' + event.game.id, settings);
+                                return;
+                            }
+                        }
+                    } catch (e) { console.error(e); }
+                }
+            } catch (e) {
+                console.error("Lichess error:", e);
+                alert("Error connecting to Lichess: " + e.message);
+                setIsSearchingLichess(false);
+            }
+
+        } else {
+            // P2P: Create Public Game in Firebase
+            if (!myId) return alert('Esperando ID de red...');
+
+            try {
+                const docRef = await addDoc(collection(db, "games"), {
+                    hostId: myId,
+                    name: playerName,
+                    elo: '1200?',
+                    timeControl: settings.timeControl,
+                    color: settings.color,
+                    status: 'waiting', // Explicit status
+                    createdAt: Date.now()
+                });
+
+                // Pass docRef.id to App so Game.jsx can handle deletion
+                onConnect(null, settings, docRef.id);
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                alert("Error al crear partida en la nube: " + e.message);
+            }
+        }
+    };
+
+    const handleJoinGame = async (gameId, hostPeerId) => {
+        // Delete the game immediately when accepted
+        try {
+            await deleteDoc(doc(db, "games", gameId));
+        } catch (e) {
+            console.error("Error deleting game:", e);
+        }
+        onConnect(hostPeerId, null);
+    };
+
+    const cancelHosting = async () => {
+        if (hostedGameId) {
+            try {
+                await deleteDoc(doc(db, "games", hostedGameId));
+            } catch (e) { console.error(e); }
+            setHostedGameId(null);
+        }
+        setIsHosting(false);
+    };
+
+    // Cleanup on unmount if hosting
+    useEffect(() => {
+        return () => {
+            if (isHosting && hostedGameId) {
+                deleteDoc(doc(db, "games", hostedGameId)).catch(e => console.error(e));
+            }
+        };
+    }, [isHosting, hostedGameId]);
+
+    // Debug Log Ref
+    const logRef = React.useRef(null);
+
+    return (
+        <div className="lobby-container">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h1>Ajedrez P2P</h1>
+                <button
+                    onClick={() => setShowSettings(true)}
+                    style={{
+                        padding: '0.6rem 1rem',
+                        fontSize: '0.9rem',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '6px',
+                        color: 'var(--on-background)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                    onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
+                >
+                    ⚙️ Configuración
+                </button>
+            </div>
+            <div className="card">
+                {/* COLUMNA IZQUIERDA: Configuración */}
+                <div className="lobby-left-column">
+                    {/* User Info */}
+                    {user ? (
+                        <div className="form-group" style={{ marginBottom: '0.5rem' }}>
+                            <label style={{ fontSize: '0.9rem' }}>Usuario</label>
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '0.5rem',
+                                position: 'relative'
+                            }}>
+                                <div
+                                    onClick={() => setShowUserMenu(!showUserMenu)}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.75rem',
+                                        padding: '0.5rem',
+                                        background: showUserMenu ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.05)',
+                                        borderRadius: '6px',
+                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseOver={(e) => !showUserMenu && (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.07)')}
+                                    onMouseOut={(e) => !showUserMenu && (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)')}
+                                >
+                                    <img
+                                        src={user.photoURL}
+                                        alt={user.displayName}
+                                        style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            borderRadius: '50%'
+                                        }}
+                                    />
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: '600', fontSize: '0.85rem' }}>
+                                            {user.displayName}
+                                        </div>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--secondary-color)', opacity: 0.7 }}>
+                                            {user.email}
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: '0.8rem', opacity: 0.5 }}>
+                                        {showUserMenu ? '▲' : '▼'}
+                                    </div>
+                                </div>
+
+                                {showUserMenu && (
+                                    <button
+                                        onClick={async (e) => {
+                                            e.stopPropagation();
+                                            try {
+                                                await signOut(auth);
+                                                setShowUserMenu(false);
+                                            } catch (error) {
+                                                console.error('Error signing out:', error);
+                                                alert('Error al cerrar sesión: ' + error.message);
+                                            }
+                                        }}
+                                        style={{
+                                            padding: '0.5rem',
+                                            fontSize: '0.75rem',
+                                            background: 'rgba(239, 68, 68, 0.1)',
+                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                            color: '#ef4444',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            animation: 'slideUp 0.2s ease-out'
+                                        }}
+                                        onMouseOver={(e) => {
+                                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                                            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                                        }}
+                                        onMouseOut={(e) => {
+                                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                                            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                                        }}
+                                    >
+                                        🚪 Cerrar sesión
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="form-group" style={{ marginBottom: '0.5rem' }}>
+                            <label style={{ fontSize: '0.9rem' }}>Tu Nombre</label>
+                            <input
+                                type="text"
+                                value={playerName}
+                                onChange={e => setPlayerName(e.target.value)}
+                                maxLength={15}
+                                style={{ padding: '0.4rem' }}
+                            />
+                        </div>
+                    )}
+
+                    <div className="form-group" style={{ marginBottom: '0.5rem' }}>
+                        <label style={{ fontSize: '0.9rem' }}>Modo de Juego</label>
+                        <div className="mode-selector">
+                            <button
+                                className={gameMode === 'p2p' ? 'active' : ''}
+                                onClick={() => setGameMode('p2p')}
+                                style={{ padding: '0.4rem', fontSize: '0.9rem' }}
+                            >
+                                Online (P2P)
+                            </button>
+                            <button
+                                className={gameMode === 'computer' ? 'active' : ''}
+                                onClick={() => setGameMode('computer')}
+                                style={{ padding: '0.4rem', fontSize: '0.9rem' }}
+                            >
+                                Contra Stockfish
+                            </button>
+                            <button
+                                className={gameMode === 'lichess' ? 'active' : ''}
+                                onClick={() => setGameMode('lichess')}
+                                style={{ padding: '0.4rem', fontSize: '0.9rem' }}
+                            >
+                                Lichess.org
+                            </button>
+                        </div>
+                    </div>
+
+                    {!isHosting && (
+                        <>
+                            <div className="form-group">
+                                <label>Tu Color</label>
+                                <div className="color-selector">
+                                    <button className={color === 'white' ? 'active' : ''} onClick={() => setColor('white')}>Blancas</button>
+                                    <button className={color === 'random' ? 'active' : ''} onClick={() => setColor('random')}>Aleatorio</button>
+                                    <button className={color === 'black' ? 'active' : ''} onClick={() => setColor('black')}>Negras</button>
+                                </div>
+                            </div>
+
+                            {gameMode === 'computer' && (
+                                <div className="form-group">
+                                    <label>Nivel (ELO)</label>
+                                    <select value={elo} onChange={(e) => setElo(e.target.value)}>
+                                        <option value="800">Principiante (800)</option>
+                                        <option value="1200">Aficionado (1200)</option>
+                                        <option value="1600">Intermedio (1600)</option>
+                                        <option value="2000">Avanzado (2000)</option>
+                                        <option value="2500">Maestro (2500)</option>
+                                    </select>
+                                </div>
+                            )}
+
+                            <div className="form-group">
+                                <label>Tiempo</label>
+                                <select value={timeControl} onChange={(e) => setTimeControl(e.target.value)}>
+                                    <option value="10+0">Rápida (10 min)</option>
+                                    <option value="5+3">Blitz (5+3)</option>
+                                    <option value="3+2">Blitz (3+2)</option>
+                                    <option value="1+0">Bullet (1 min)</option>
+                                    <option value="custom">⚙️ Personalizado</option>
+                                </select>
+
+                                {timeControl === 'custom' && (
+                                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ fontSize: '0.65rem' }}>Minutos</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="180"
+                                                value={customTime}
+                                                onChange={(e) => setCustomTime(Math.max(1, Math.min(180, parseInt(e.target.value) || 1)))}
+                                                style={{ width: '100%', padding: '0.4rem' }}
+                                            />
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ fontSize: '0.65rem' }}>Incremento (seg)</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="60"
+                                                value={customInc}
+                                                onChange={(e) => setCustomInc(Math.max(0, Math.min(60, parseInt(e.target.value) || 0)))}
+                                                style={{ width: '100%', padding: '0.4rem' }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                className="btn-primary"
+                                onClick={handleCreateGame}
+                                disabled={(gameMode === 'p2p' && !myId) || (gameMode === 'lichess' && isSearchingLichess)}
+                            >
+                                {gameMode === 'computer' ? 'Jugar contra Stockfish' :
+                                    gameMode === 'lichess' ? (lichessToken ? (isSearchingLichess ? 'Buscando...' : 'Buscar en Lichess') : 'Conectar con Lichess') :
+                                        'Crear Partida Pública'}
+                            </button>
+                        </>
+                    )}
+
+                    {isHosting && (
+                        <div style={{ textAlign: 'center', padding: '1rem' }}>
+                            <div className="spinner" style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
+                            <h3>Esperando oponente...</h3>
+                            <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Tu partida es visible mundialmente.</p>
+                            <button className="btn-secondary" onClick={cancelHosting} style={{ marginTop: '1rem' }}>
+                                Cancelar
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* COLUMNA DERECHA: Lista de Partidas */}
+                <div className="lobby-right-column">
+                    {gameMode === 'p2p' && !isHosting && (
+                        <div className="game-list-section">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                <h3 style={{ margin: 0 }}>Partidas disponibles</h3>
+                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                    <select
+                                        value={sortBy}
+                                        onChange={(e) => setSortBy(e.target.value)}
+                                        style={{
+                                            padding: '0.25rem 0.4rem',
+                                            fontSize: '0.7rem',
+                                            background: '#1e293b',
+                                            color: '#f1f5f9',
+                                            border: '1px solid rgba(255,255,255,0.1)',
+                                            borderRadius: '4px'
+                                        }}
+                                    >
+                                        <option value="recent">Más reciente</option>
+                                        <option value="time-asc">Tiempo menor</option>
+                                        <option value="time-desc">Tiempo mayor</option>
+                                    </select>
+                                    <button
+                                        className="btn-secondary"
+                                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                                        onClick={() => window.location.reload()}
+                                    >
+                                        🔄
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="game-list">
+                                {games.length === 0 ? (
+                                    <div style={{ textAlign: 'center', color: '#666', fontStyle: 'italic', padding: '1rem', fontSize: '0.9rem' }}>
+                                        No hay partidas. ¡Sé el primero!
+                                    </div>
+                                ) : (
+                                    games.map(g => (
+                                        <div key={g.id} style={{
+                                            background: '#334155',
+                                            padding: '0.8rem',
+                                            borderRadius: '8px',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}>
+                                            <div>
+                                                <div style={{ fontWeight: 'bold', color: 'white', fontSize: '0.95rem' }}>{g.name}</div>
+                                                <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                                                    {g.timeControl} • {g.color === 'white' ? 'Juega Blancas' : 'Juega Negras'}
+                                                </div>
+                                            </div>
+                                            <button
+                                                className="btn-secondary"
+                                                onClick={() => handleJoinGame(g.id, g.hostId)}
+                                                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                                            >
+                                                Jugar
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* CONNECTION STATUS INDICATOR */}
+            <div style={{
+                marginTop: '1rem',
+                maxWidth: '900px',
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem',
+                position: 'relative'
+            }}>
+                <div
+                    onClick={() => setShowStatusTooltip(!showStatusTooltip)}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        cursor: 'pointer',
+                        padding: '0.3rem 0.6rem',
+                        borderRadius: '12px',
+                        background: showStatusTooltip ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+                        transition: 'background 0.2s'
+                    }}
+                >
+                    <div style={{
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        backgroundColor: connectionStatus === 'offline' ? '#ef4444' : (connectionStatus === 'slow' ? '#eab308' : '#22c55e'),
+                        boxShadow: connectionStatus === 'offline' ? '0 0 8px #ef4444' : (connectionStatus === 'slow' ? '0 0 8px #eab308' : '0 0 8px #22c55e'),
+                        animation: 'pulse 2s infinite'
+                    }}></div>
+                    <span style={{
+                        fontSize: '0.7rem',
+                        color: connectionStatus === 'offline' ? '#ef4444' : (connectionStatus === 'slow' ? '#eab308' : '#22c55e'),
+                        fontWeight: '500',
+                        opacity: 0.8
+                    }}>
+                        {connectionStatus === 'offline' ? 'Sin conexión' : (connectionStatus === 'slow' ? 'Conexión lenta' : 'Conectado')}
+                    </span>
+                </div>
+
+                {/* Tooltip */}
+                {showStatusTooltip && (
+                    <div style={{
+                        background: 'rgba(0, 0, 0, 0.9)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '8px',
+                        padding: '0.75rem',
+                        fontSize: '0.75rem',
+                        maxWidth: '280px',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+                        animation: 'slideUp 0.2s ease-out'
+                    }}>
+                        <div style={{ fontWeight: '600', marginBottom: '0.5rem', color: 'white' }}>
+                            Estado de Conexión
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e' }}></div>
+                                <span style={{ color: '#94a3b8' }}>Verde: Conexión estable y óptima</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#eab308' }}></div>
+                                <span style={{ color: '#94a3b8' }}>Amarillo: Conexión lenta o inestable</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }}></div>
+                                <span style={{ color: '#94a3b8' }}>Rojo: Sin conexión a internet</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+
+            {/* Settings Modal */}
+            {showSettings && <Settings onClose={() => setShowSettings(false)} />}
+        </div>
+    );
+};
+
+export default Lobby;

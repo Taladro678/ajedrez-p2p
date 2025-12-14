@@ -1,0 +1,498 @@
+:root {
+    --bg-color: #0f172a;
+    --surface-color: #1e293b;
+    --primary-color: #3b82f6;
+    --primary-variant: #1d4ed8;
+    --secondary-color: #64748b;
+    --accent-color: #0ea5e9;
+    --error-color: #ef4444;
+    --on-background: #f8fafc;
+    --on-surface: #f1f5f9;
+    --on-primary: #ffffff;
+    --on-secondary: #ffffff;
+
+    --elevation-1: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --elevation-2: 0 4px 6px rgba(0, 0, 0, 0.3);
+    --elevation-4: 0 10px 20px rgba(0, 0, 0, 0.4);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg-color);
+    color: var(--on-background);
+}
+
+.app-main {
+    width: 100vw;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+/* --- GAME LAYOUT --- */
+.game-container {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    width: 100vw;
+    background: var(--bg-color);
+}
+
+.game-header {
+    padding: 0.8rem 1rem;
+    background: rgba(0, 0, 0, 0.3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    flex-shrink: 0;
+}
+
+.game-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.board-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 0.5rem;
+    background: var(--bg-color);
+}
+
+.native-board-container {
+    width: 100%;
+    max-width: min(85vh, 90vw);
+    aspect-ratio: 1/1;
+    display: flex;
+    flex-wrap: wrap;
+    box-shadow: var(--elevation-4);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* --- CHAT SECTION --- */
+.chat-section {
+    width: 320px;
+    flex: 0 0 320px;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-color);
+    border-left: 1px solid rgba(255, 255, 255, 0.05);
+    transition: transform 0.3s ease-in-out;
+    z-index: 20;
+}
+
+.chat-header {
+    padding: 0.8rem;
+    background: rgba(0, 0, 0, 0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.message {
+    padding: 0.5rem 0.8rem;
+    border-radius: 12px;
+    max-width: 85%;
+    word-break: break-word;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    box-shadow: var(--elevation-1);
+}
+
+.message.own {
+    background: var(--primary-color);
+    color: var(--on-primary);
+    align-self: flex-end;
+    border-bottom-right-radius: 2px;
+}
+
+.message.opponent {
+    background: #334155;
+    color: var(--on-surface);
+    align-self: flex-start;
+    border-bottom-left-radius: 2px;
+}
+
+.message.system {
+    background: transparent;
+    color: var(--secondary-color);
+    text-align: center;
+    font-style: italic;
+    font-size: 0.8rem;
+    box-shadow: none;
+    align-self: center;
+}
+
+.chat-input {
+    padding: 0.8rem;
+    display: flex;
+    gap: 0.5rem;
+    background: var(--surface-color);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* --- UI ELEMENTS --- */
+button {
+    padding: 0.6rem 1rem;
+    background: var(--primary-color);
+    color: var(--on-primary);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+    box-shadow: var(--elevation-1);
+    font-size: 0.85rem;
+}
+
+button:hover {
+    background: var(--primary-variant);
+    box-shadow: var(--elevation-2);
+}
+
+button:active {
+    transform: translateY(1px);
+}
+
+button.secondary {
+    background: transparent;
+    border: 1px solid var(--secondary-color);
+    color: var(--secondary-color);
+    box-shadow: none;
+}
+
+button.secondary:hover {
+    background: rgba(100, 116, 139, 0.1);
+    border-color: var(--on-surface);
+    color: var(--on-surface);
+}
+
+input,
+select {
+    flex: 1;
+    padding: 0.6rem;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: #0f172a;
+    color: var(--on-surface);
+    font-size: 0.9rem;
+}
+
+input:focus,
+select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+select option {
+    background-color: var(--surface-color);
+    color: var(--on-surface);
+}
+
+.timer {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 1.1rem;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    margin-left: 0.5rem;
+    color: var(--accent-color);
+    font-weight: bold;
+}
+
+/* --- CHAT TOGGLE & TOASTS --- */
+.chat-toggle-btn {
+    display: none;
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: var(--on-primary);
+    box-shadow: var(--elevation-4);
+    z-index: 30;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.3rem;
+}
+
+.unread-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: var(--error-color);
+    color: white;
+    font-size: 0.75rem;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    box-shadow: var(--elevation-2);
+}
+
+.chat-toast-container {
+    position: absolute;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    z-index: 25;
+    width: 90%;
+    max-width: 400px;
+    pointer-events: none;
+}
+
+.chat-toast {
+    background: rgba(30, 41, 59, 0.95);
+    color: var(--on-surface);
+    padding: 0.6rem 0.8rem;
+    border-radius: 8px;
+    box-shadow: var(--elevation-4);
+    animation: slideUp 0.3s ease-out;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-left: 4px solid var(--primary-color);
+    font-size: 0.9rem;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* --- LOBBY RESPONSIVE LAYOUT --- */
+.lobby-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    width: 100%;
+    padding: 1rem;
+    background-color: var(--bg-color);
+}
+
+.lobby-container h1 {
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+    color: var(--on-background);
+    text-align: center;
+}
+
+/* DESKTOP: 2 columnas lado a lado */
+.card {
+    background: var(--surface-color);
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: var(--elevation-4);
+    width: 100%;
+    max-width: 900px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.lobby-left-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.lobby-right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+label {
+    font-size: 0.8rem;
+    color: var(--secondary-color);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.mode-selector,
+.color-selector {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.mode-selector button,
+.color-selector button {
+    flex: 1;
+    min-width: 80px;
+    background: transparent;
+    color: var(--on-surface);
+    box-shadow: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.6rem;
+    font-size: 0.85rem;
+}
+
+.mode-selector button.active,
+.color-selector button.active {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 0.8rem;
+    font-size: 0.95rem;
+    margin-top: 0.5rem;
+}
+
+.btn-secondary {
+    background: transparent;
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+    padding: 0.5rem 0.8rem !important;
+    font-size: 0.8rem;
+}
+
+.game-list-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.game-list-section h3 {
+    font-size: 1rem;
+    margin: 0;
+    color: #aaa;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.game-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.game-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.game-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+}
+
+.game-list::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 3px;
+}
+
+/* --- MOBILE: Layout vertical compacto --- */
+@media (max-width: 768px) {
+    .lobby-container {
+        padding: 0.5rem;
+    }
+
+    .lobby-container h1 {
+        font-size: 1.2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .card {
+        max-width: 100%;
+        padding: 1rem;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .game-list {
+        max-height: 200px;
+    }
+
+    /* Game layout mobile */
+    .game-layout {
+        flex-direction: column;
+    }
+
+    .board-section {
+        flex: 1;
+        padding: 0.5rem;
+    }
+
+    .native-board-container {
+        max-width: 100%;
+        width: min(95vw, 75vh);
+        height: min(95vw, 75vh);
+    }
+
+    .chat-section {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        height: 60vh;
+        border-left: none;
+        border-top-left-radius: 16px;
+        border-top-right-radius: 16px;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+        transform: translateY(110%);
+    }
+
+    .chat-section.open {
+        transform: translateY(0);
+    }
+
+    .chat-toggle-btn {
+        display: flex;
+    }
+}

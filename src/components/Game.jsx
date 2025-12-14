@@ -1,0 +1,645 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Chess } from 'chess.js';
+
+// --- IMÁGENES DE PIEZAS ---
+const PIECE_IMAGES = {
+    'w': {
+        'p': 'https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg',
+        'r': 'https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg',
+        'n': 'https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg',
+        'b': 'https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg',
+        'q': 'https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg',
+        'k': 'https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg',
+    },
+    'b': {
+        'p': 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg',
+        'r': 'https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg',
+        'n': 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg',
+        'b': 'https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg',
+        'q': 'https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg',
+        'k': 'https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg',
+    }
+};
+
+const Game = ({ onDisconnect, connection, settings, hostedGameId }) => {
+    const [game, setGame] = useState(new Chess());
+    const [orientation, setOrientation] = useState('white');
+    const [selectedSquare, setSelectedSquare] = useState(null);
+    const [possibleMoves, setPossibleMoves] = useState([]);
+    const [lastMove, setLastMove] = useState(null); // { from: 'e2', to: 'e4' }
+    const [draggedPiece, setDraggedPiece] = useState(null);
+    const [internalSettings, setInternalSettings] = useState(settings || null);
+
+    // Chat & UI State
+    const [messages, setMessages] = useState([]);
+    const [inputText, setInputText] = useState('');
+    const [whiteTime, setWhiteTime] = useState(null);
+    const [blackTime, setBlackTime] = useState(null);
+    const [winner, setWinner] = useState(null);
+
+    // Responsive Chat State
+    const [isChatOpen, setIsChatOpen] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [lastToast, setLastToast] = useState(null);
+
+    // Refs
+    const engine = useRef(null);
+    const messagesEndRef = useRef(null);
+
+    // --- INITIALIZATION ---
+    useEffect(() => {
+        if (internalSettings) {
+            if (internalSettings.color === 'black') setOrientation('black');
+            else setOrientation('white');
+
+            // Init Time
+            if (internalSettings.timeControl && internalSettings.timeControl !== 'unlimited') {
+                const parts = internalSettings.timeControl.split('+');
+                const min = Number(parts[0]);
+                const initialTime = min * 60;
+                setWhiteTime(prev => prev === null ? initialTime : prev);
+                setBlackTime(prev => prev === null ? initialTime : prev);
+            }
+        }
+    }, [internalSettings]);
+
+    // Cleanup hosted game on mount/unmount/connection
+    useEffect(() => {
+        // If we have a connection (game started), delete the public listing
+        if (connection && hostedGameId) {
+            import('../firebase').then(({ db }) => {
+                import('firebase/firestore').then(({ doc, deleteDoc }) => {
+                    deleteDoc(doc(db, "games", hostedGameId)).catch(e => console.error("Error deleting game doc:", e));
+                });
+            });
+        }
+
+        return () => {
+            // If we unmount (e.g. disconnect), ensure it's deleted
+            if (hostedGameId) {
+                import('../firebase').then(({ db }) => {
+                    import('firebase/firestore').then(({ doc, deleteDoc }) => {
+                        deleteDoc(doc(db, "games", hostedGameId)).catch(e => console.error("Error deleting game doc on unmount:", e));
+                    });
+                });
+            }
+        };
+    }, [connection, hostedGameId]);
+
+    // --- STOCKFISH INIT ---
+    useEffect(() => {
+        if (internalSettings?.gameMode === 'computer') {
+            const initStockfish = async () => {
+                try {
+                    const response = await fetch('/stockfish.js');
+                    const blob = await response.blob();
+                    const objectUrl = URL.createObjectURL(blob);
+                    const worker = new Worker(objectUrl);
+                    engine.current = worker;
+
+                    worker.onmessage = (event) => {
+                        const message = event.data;
+                        if (typeof message === 'string' && message.startsWith('bestmove')) {
+                            const move = message.split(' ')[1];
+                            safeMakeMove(move);
+                        }
+                    };
+                    worker.postMessage('uci');
+                    worker.postMessage('isready');
+                } catch (error) {
+                    console.error("Error loading Stockfish:", error);
+                }
+            };
+            initStockfish();
+            return () => { if (engine.current) engine.current.terminate(); };
+        }
+    }, [internalSettings]);
+
+    // --- COMPUTER MOVE TRIGGER ---
+    useEffect(() => {
+        if (internalSettings?.gameMode === 'computer' && !game.isGameOver() && !winner && engine.current) {
+            const isComputerTurn = (internalSettings.color === 'white' && game.turn() === 'b') ||
+                (internalSettings.color === 'black' && game.turn() === 'w');
+
+            if (isComputerTurn) {
+                setTimeout(() => {
+                    const elo = internalSettings.elo || 1200;
+                    let depth = 1;
+                    if (elo >= 2500) depth = 20;
+                    else if (elo >= 2000) depth = 15;
+                    else if (elo >= 1600) depth = 10;
+                    else if (elo >= 1200) depth = 5;
+                    else depth = 2;
+
+                    const skill = Math.min(20, Math.max(0, Math.floor((elo - 800) / (1700 / 20))));
+                    engine.current.postMessage(`setoption name Skill Level value ${skill}`);
+
+                    engine.current.postMessage('position fen ' + game.fen());
+                    engine.current.postMessage(`go depth ${depth}`);
+                }, 500);
+            }
+        }
+    }, [game, internalSettings, winner]);
+
+    // --- TIMER LOGIC ---
+    useEffect(() => {
+        if (game.isGameOver() || winner || whiteTime === null || blackTime === null) return;
+        if (internalSettings?.gameMode === 'p2p' && !connection) return;
+
+        const timer = setInterval(() => {
+            if (game.turn() === 'w') setWhiteTime(t => Math.max(0, t - 1));
+            else setBlackTime(t => Math.max(0, t - 1));
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [game, winner, whiteTime, blackTime, connection, internalSettings]);
+
+    // --- TIMEOUT CHECK ---
+    useEffect(() => {
+        if (whiteTime === 0 && !winner) {
+            setWinner('Negras (Tiempo)');
+            if (internalSettings?.color === 'black') playSound('win');
+            else playSound('lose');
+        }
+        if (blackTime === 0 && !winner) {
+            setWinner('Blancas (Tiempo)');
+            if (internalSettings?.color === 'white') playSound('win');
+            else playSound('lose');
+        }
+    }, [whiteTime, blackTime, winner, internalSettings]);
+
+    // --- P2P LOGIC ---
+    useEffect(() => {
+        if (!connection) return;
+
+        if (settings) {
+            const sendSettings = () => connection.send({ type: 'settings', settings });
+            if (connection.open) sendSettings();
+            connection.on('open', sendSettings);
+        }
+
+        const handleData = (data) => {
+            if (data.type === 'move') {
+                safeMakeMove(data.move);
+            } else if (data.type === 'settings') {
+                const receivedSettings = data.settings;
+                const mySettings = {
+                    ...receivedSettings,
+                    color: receivedSettings.color === 'white' ? 'black' : 'white'
+                };
+                setInternalSettings(mySettings);
+            } else if (data.type === 'chat') {
+                setMessages(prev => [...prev, { sender: 'Oponente', text: data.message }]);
+                playSound('notify');
+                if (!isChatOpen) {
+                    setUnreadCount(prev => prev + 1);
+                    setLastToast({ sender: 'Oponente', text: data.message, id: Date.now() });
+                    setTimeout(() => setLastToast(null), 3000);
+                }
+            }
+        };
+
+        connection.on('data', handleData);
+        return () => connection.off('data', handleData);
+    }, [connection, settings]);
+
+    // --- CHAT SCROLL ---
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
+
+    // --- HELPERS ---
+    function safeMakeMove(moveOrSan) {
+        setGame(g => {
+            const copy = new Chess(g.fen());
+            try {
+                const result = copy.move(moveOrSan);
+                if (result) {
+                    // Guardar último movimiento para resaltado
+                    setLastMove({ from: result.from, to: result.to });
+
+                    if (result.captured) playSound('capture');
+                    else playSound('move');
+
+                    if (copy.isGameOver()) {
+                        if (copy.inCheckmate()) {
+                            const myColor = internalSettings?.color || 'white';
+                            const loserColor = copy.turn() === 'w' ? 'white' : 'black';
+                            if (myColor === loserColor) playSound('lose');
+                            else playSound('win');
+                        } else {
+                            playSound('draw');
+                        }
+                    }
+
+                    return copy;
+                }
+            } catch (e) { }
+            return g;
+        });
+    }
+
+    function handleSquareClick(square) {
+        if (game.isGameOver() || winner) return;
+
+        // 1. Move Attempt
+        if (selectedSquare) {
+            if (selectedSquare === square) {
+                setSelectedSquare(null);
+                setPossibleMoves([]);
+                return;
+            }
+
+            try {
+                const gameCopy = new Chess(game.fen());
+                const move = gameCopy.move({
+                    from: selectedSquare,
+                    to: square,
+                    promotion: 'q'
+                });
+
+                if (move) {
+                    // Guardar último movimiento
+                    setLastMove({ from: move.from, to: move.to });
+
+                    // Play Sound
+                    if (move.captured) playSound('capture');
+                    else playSound('move');
+
+                    if (gameCopy.isGameOver()) {
+                        if (gameCopy.inCheckmate()) {
+                            const myColor = internalSettings?.color || 'white';
+                            const loserColor = gameCopy.turn() === 'w' ? 'white' : 'black';
+                            if (myColor === loserColor) playSound('lose');
+                            else playSound('win');
+                        } else {
+                            playSound('draw');
+                        }
+                    }
+
+                    setGame(gameCopy);
+                    setSelectedSquare(null);
+                    setPossibleMoves([]);
+                    if (connection) connection.send({ type: 'move', move });
+                    return;
+                }
+            } catch (e) { }
+        }
+
+        // 2. Select Piece
+        const piece = game.get(square);
+        if (piece && piece.color === game.turn()) {
+            const isMyTurn = (internalSettings?.gameMode === 'computer') ?
+                ((internalSettings.color === 'white' && game.turn() === 'w') || (internalSettings.color === 'black' && game.turn() === 'b')) :
+                ((orientation === 'white' && game.turn() === 'w') || (orientation === 'black' && game.turn() === 'b'));
+
+            if (isMyTurn || !connection) {
+                setSelectedSquare(square);
+                const moves = game.moves({ square, verbose: true }).map(m => m.to);
+                setPossibleMoves(moves);
+            }
+        } else {
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+        }
+    }
+
+    // --- DRAG & DROP HANDLERS ---
+    const handleDragStart = (e, square) => {
+        if (game.isGameOver() || winner) return;
+
+        const piece = game.get(square);
+        if (!piece) return;
+
+        const isMyTurn = (internalSettings?.gameMode === 'computer') ?
+            ((internalSettings.color === 'white' && game.turn() === 'w') || (internalSettings.color === 'black' && game.turn() === 'b')) :
+            ((orientation === 'white' && game.turn() === 'w') || (orientation === 'black' && game.turn() === 'b'));
+
+        if (piece.color === game.turn() && (isMyTurn || !connection)) {
+            setDraggedPiece(square);
+            setSelectedSquare(square);
+            const moves = game.moves({ square, verbose: true }).map(m => m.to);
+            setPossibleMoves(moves);
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', square);
+        } else {
+            e.preventDefault();
+        }
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleDrop = (e, targetSquare) => {
+        e.preventDefault();
+
+        if (!draggedPiece) return;
+
+        try {
+            const gameCopy = new Chess(game.fen());
+            const move = gameCopy.move({
+                from: draggedPiece,
+                to: targetSquare,
+                promotion: 'q'
+            });
+
+            if (move) {
+                // Guardar último movimiento
+                setLastMove({ from: move.from, to: move.to });
+
+                // Play Sound
+                if (move.captured) playSound('capture');
+                else playSound('move');
+
+                if (gameCopy.isGameOver()) {
+                    if (gameCopy.inCheckmate()) {
+                        const myColor = internalSettings?.color || 'white';
+                        const loserColor = gameCopy.turn() === 'w' ? 'white' : 'black';
+                        if (myColor === loserColor) playSound('lose');
+                        else playSound('win');
+                    } else {
+                        playSound('draw');
+                    }
+                }
+
+                setGame(gameCopy);
+                if (connection) connection.send({ type: 'move', move });
+            }
+        } catch (e) {
+            console.log('Invalid move');
+        }
+
+        setDraggedPiece(null);
+        setSelectedSquare(null);
+        setPossibleMoves([]);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedPiece(null);
+    };
+
+    const sendMessage = () => {
+        if (!inputText.trim()) return;
+        const msg = { sender: 'Tú', text: inputText };
+        setMessages(prev => [...prev, msg]);
+        if (connection) connection.send({ type: 'chat', message: inputText });
+        setInputText('');
+    };
+
+    const formatTime = (seconds) => {
+        if (seconds === null) return '--:--';
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return m + ':' + s.toString().padStart(2, '0');
+    };
+
+    // --- RENDER HELPERS ---
+    const renderSquare = (i, j) => {
+        const file = j;
+        const rank = 7 - i;
+        const square = String.fromCharCode(97 + file) + (rank + 1);
+
+        const piece = game.get(square);
+        const isDark = (i + j) % 2 === 1;
+        const isSelected = selectedSquare === square;
+        const isPossibleMove = possibleMoves.includes(square);
+        const isLastMoveFrom = lastMove?.from === square;
+        const isLastMoveTo = lastMove?.to === square;
+
+        // Color de fondo con resaltado de último movimiento
+        let backgroundColor;
+        if (isSelected) {
+            backgroundColor = 'rgba(255, 255, 0, 0.5)';
+        } else if (isLastMoveFrom || isLastMoveTo) {
+            backgroundColor = isDark ? 'rgba(205, 210, 106, 0.8)' : 'rgba(246, 246, 130, 0.8)';
+        } else {
+            backgroundColor = isDark ? '#779954' : '#e9edcc';
+        }
+
+        return (
+            <div
+                key={square}
+                onClick={() => handleSquareClick(square)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, square)}
+                style={{
+                    width: '12.5%',
+                    height: '12.5%',
+                    backgroundColor,
+                    position: 'relative',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    cursor: 'pointer'
+                }}
+            >
+                {isPossibleMove && (
+                    <div style={{
+                        width: '20%',
+                        height: '20%',
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(0,0,0,0.2)',
+                        position: 'absolute',
+                        zIndex: 1
+                    }} />
+                )}
+                {piece && (
+                    <img
+                        src={PIECE_IMAGES[piece.color][piece.type]}
+                        alt={`${piece.color}${piece.type}`}
+                        draggable={true}
+                        onDragStart={(e) => handleDragStart(e, square)}
+                        onDragEnd={handleDragEnd}
+                        style={{
+                            width: '90%',
+                            height: '90%',
+                            cursor: piece.color === game.turn() ? 'grab' : 'default',
+                            opacity: draggedPiece === square ? 0.5 : 1,
+                            zIndex: 2
+                        }}
+                    />
+                )}
+                {j === 0 && <span style={{ position: 'absolute', top: 2, left: 2, fontSize: 10, color: isDark ? '#e9edcc' : '#779954', zIndex: 0 }}>{rank + 1}</span>}
+                {i === 7 && <span style={{ position: 'absolute', bottom: 2, right: 2, fontSize: 10, color: isDark ? '#e9edcc' : '#779954', zIndex: 0 }}>{String.fromCharCode(97 + file)}</span>}
+            </div>
+        );
+    };
+
+    const boardSquares = [];
+    if (orientation === 'white') {
+        for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) boardSquares.push(renderSquare(i, j));
+    } else {
+        for (let i = 7; i >= 0; i--) for (let j = 7; j >= 0; j--) boardSquares.push(renderSquare(i, j));
+    }
+
+    if (!internalSettings) return (
+        <div style={{ color: 'white', padding: 20, textAlign: 'center' }}>
+            <h2>Cargando configuración...</h2>
+            <p>Esperando datos del anfitrión.</p>
+            <button className="btn-secondary" onClick={onDisconnect} style={{ marginTop: 20 }}>
+                Cancelar / Volver
+            </button>
+        </div>
+    );
+
+    return (
+        <div className="game-container">
+            {/* HEADER - Minimal */}
+            <header className="game-header" style={{ justifyContent: 'space-between', padding: '0.5rem', minHeight: 'auto' }}>
+                <div style={{ fontWeight: 'bold', color: '#aaa', fontSize: '0.9rem' }}>
+                    {winner ? `🏆 ${winner}` : (game.inCheck() ? '⚠️ JAQUE' : 'Partida en Curso')}
+                </div>
+                <div>
+                    <button onClick={() => setOrientation(o => o === 'white' ? 'black' : 'white')} style={{ marginRight: '10px', padding: '4px 8px', fontSize: '0.8rem' }}>Rotar</button>
+                    <button className="secondary" onClick={onDisconnect} style={{ padding: '4px 8px', fontSize: '0.8rem' }}>Salir</button>
+                </div>
+            </header>
+
+            {/* CHAT TOGGLE FAB (Mobile) - Only show when chat is CLOSED */}
+            {!isChatOpen && (
+                <button
+                    className="chat-toggle-btn"
+                    onClick={() => {
+                        setIsChatOpen(true);
+                        setUnreadCount(0);
+                    }}
+                >
+                    💬
+                    {unreadCount > 0 && <span className="unread-badge">{unreadCount}</span>}
+                </button>
+            )}
+
+            {/* CHAT TOAST (Mobile) */}
+            {lastToast && !isChatOpen && (
+                <div className="chat-toast-container">
+                    <div className="chat-toast">
+                        <strong>{lastToast.sender}:</strong> {lastToast.text}
+                    </div>
+                </div>
+            )}
+
+            {/* MAIN LAYOUT */}
+            <div className="game-layout">
+                {/* BOARD */}
+                <div className="board-section">
+
+                    {/* OPPONENT INFO (Top) */}
+                    <div className="player-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '5px', color: '#ccc', padding: '0 5px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ width: '24px', height: '24px', background: '#333', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '12px' }}>👤</div>
+                            <span style={{ fontSize: '0.9rem' }}>Oponente</span>
+                        </div>
+                        <div className="timer" style={{ fontSize: '1.1rem', fontFamily: 'monospace', background: '#222', padding: '2px 6px', borderRadius: '4px', color: (orientation === 'white' ? blackTime : whiteTime) < 30 ? 'red' : 'white' }}>
+                            {formatTime(orientation === 'white' ? blackTime : whiteTime)}
+                        </div>
+                    </div>
+
+                    <div className="native-board-container">
+                        {boardSquares}
+                    </div>
+
+                    {/* SELF INFO (Bottom) */}
+                    <div className="player-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginTop: '5px', color: 'white', padding: '0 5px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ width: '24px', height: '24px', background: '#4CAF50', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '12px' }}>👤</div>
+                            <span style={{ fontSize: '0.9rem' }}>Tú</span>
+                        </div>
+                        <div className="timer" style={{ fontSize: '1.1rem', fontFamily: 'monospace', background: '#222', padding: '2px 6px', borderRadius: '4px', color: (orientation === 'white' ? whiteTime : blackTime) < 30 ? 'red' : 'white' }}>
+                            {formatTime(orientation === 'white' ? whiteTime : blackTime)}
+                        </div>
+                    </div>
+
+                </div>
+
+                {/* CHAT */}
+                <div className={`chat-section ${isChatOpen ? 'open' : ''}`}>
+                    <div className="chat-header">
+                        <span>Chat de Partida</span>
+                        <button
+                            className="secondary"
+                            style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }}
+                            onClick={() => setIsChatOpen(false)}
+                        >
+                            ▼
+                        </button>
+                    </div>
+                    <div className="chat-messages">
+                        <div className="message system">Inicio de la partida</div>
+                        {messages.map((msg, i) => (
+                            <div key={i} className={`message ${msg.sender === 'Tú' ? 'own' : 'opponent'}`}>
+                                <strong>{msg.sender}:</strong> {msg.text}
+                            </div>
+                        ))}
+                        <div ref={messagesEndRef} />
+                    </div>
+
+                    {/* QUICK CHAT & EMOJIS */}
+                    <div className="quick-actions" style={{ padding: '0.5rem', display: 'flex', gap: '0.5rem', overflowX: 'auto', background: 'var(--surface-color)' }}>
+                        {['👍', '👏', '😂', '🤔', '😭', '😡'].map(emoji => (
+                            <button key={emoji} className="secondary" style={{ padding: '0.3rem', fontSize: '1.2rem', minWidth: 'auto' }} onClick={() => {
+                                setInputText(prev => prev + emoji);
+                            }}>{emoji}</button>
+                        ))}
+                    </div>
+                    <div className="quick-chat" style={{ padding: '0 0.5rem 0.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', background: 'var(--surface-color)' }}>
+                        {['Hola', 'Buena partida', 'Gracias', 'Ups', 'Jaque', 'Rematch?'].map(text => (
+                            <button key={text} className="secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', whiteSpace: 'nowrap' }} onClick={() => {
+                                const msg = { sender: 'Tú', text };
+                                setMessages(prev => [...prev, msg]);
+                                if (connection) connection.send({ type: 'chat', message: text });
+                            }}>{text}</button>
+                        ))}
+                    </div>
+
+                    <div className="chat-input">
+                        <input
+                            type="text"
+                            placeholder="Escribe..."
+                            value={inputText}
+                            onChange={e => setInputText(e.target.value)}
+                            onKeyPress={e => e.key === 'Enter' && sendMessage()}
+                        />
+                        <button onClick={sendMessage}>Enviar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- SOUNDS ---
+const SOUNDS = {
+    move: new Audio('/sounds/move.mp3'),
+    capture: new Audio('/sounds/capture.mp3'),
+    notify: new Audio('/sounds/notify.mp3'),
+    check: new Audio('/sounds/check.mp3'),
+    castle: new Audio('/sounds/castle.mp3'),
+    win: new Audio('/sounds/win.mp3'),
+    lose: new Audio('/sounds/lose.mp3'),
+    draw: new Audio('/sounds/draw.mp3')
+};
+
+const playSound = (type) => {
+    try {
+        console.log(`Attempting to play sound: ${type}`);
+        if (SOUNDS[type]) {
+            SOUNDS[type].currentTime = 0;
+            const promise = SOUNDS[type].play();
+            if (promise !== undefined) {
+                promise.then(() => {
+                    console.log(`Sound ${type} played successfully`);
+                }).catch(error => {
+                    console.error(`Audio play failed for ${type}:`, error);
+                });
+            }
+        } else {
+            console.warn(`Sound ${type} not found in SOUNDS object`);
+        }
+    } catch (e) {
+        console.error("Critical error in playSound:", e);
+    }
+};
+
+export default Game;
