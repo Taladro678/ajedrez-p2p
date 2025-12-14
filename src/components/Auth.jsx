@@ -30,6 +30,12 @@ const Auth = () => {
                 const result = await getRedirectResult(auth);
                 if (result) {
                     console.log('Signed in via redirect:', result.user.displayName);
+                    // Get the Google Access Token from redirect
+                    const credential = GoogleAuthProvider.credentialFromResult(result);
+                    const token = credential.accessToken;
+                    if (token) {
+                        sessionStorage.setItem('google_access_token', token);
+                    }
                 }
             } catch (error) {
                 console.error('Error getting redirect result:', error);
@@ -47,8 +53,8 @@ const Auth = () => {
 
     const handleGoogleSignIn = async () => {
         const provider = new GoogleAuthProvider();
-        // Drive scope commented out - can enable later when OAuth is configured
-        // provider.addScope('https://www.googleapis.com/auth/drive.file');
+        // Request access to create/edit files created by this app
+        provider.addScope('https://www.googleapis.com/auth/drive.file');
 
         try {
             if (isMobile()) {
@@ -59,6 +65,14 @@ const Auth = () => {
                 // Use popup for desktop
                 console.log('Using popup for desktop');
                 const result = await signInWithPopup(auth, provider);
+
+                // Get the Google Access Token
+                const credential = GoogleAuthProvider.credentialFromResult(result);
+                const token = credential.accessToken;
+                if (token) {
+                    sessionStorage.setItem('google_access_token', token);
+                }
+
                 console.log('Signed in:', result.user.displayName);
             }
         } catch (error) {

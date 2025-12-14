@@ -3,12 +3,52 @@ import { useSettings } from '../contexts/SettingsContext';
 import { soundManager } from '../utils/soundManager';
 import '../styles/Settings.css';
 
+import { googleDriveService } from '../services/googleDrive';
+
 const Settings = ({ onClose }) => {
-    const { settings, updateSoundSettings, updateGameplaySettings, updateAnalysisSettings, updateAntiCheatSettings } = useSettings();
+    const { settings, updateSettings, updateSoundSettings, updateGameplaySettings, updateAnalysisSettings, updateAntiCheatSettings } = useSettings();
     const [activeTab, setActiveTab] = useState('sounds');
+    const [backupStatus, setBackupStatus] = useState(null); // 'loading', 'success', 'error'
+    const [errorMessage, setErrorMessage] = useState('');
 
     const handleTestSound = (soundType) => {
         soundManager.play(soundType);
+    };
+
+    const handleUploadBackup = async () => {
+        setBackupStatus('loading');
+        try {
+            const backupData = {
+                settings: settings,
+                timestamp: Date.now(),
+                version: '1.0'
+            };
+            await googleDriveService.uploadBackup(backupData);
+            setBackupStatus('success');
+            setTimeout(() => setBackupStatus(null), 3000);
+        } catch (error) {
+            console.error(error);
+            setBackupStatus('error');
+            setErrorMessage(error.message);
+        }
+    };
+
+    const handleRestoreBackup = async () => {
+        setBackupStatus('loading');
+        try {
+            const data = await googleDriveService.restoreBackup();
+            if (data && data.settings) {
+                // Update settings using the context method which merges and saves
+                updateSettings(data.settings);
+
+                setBackupStatus('success');
+                setTimeout(() => setBackupStatus(null), 3000);
+            }
+        } catch (error) {
+            console.error(error);
+            setBackupStatus('error');
+            setErrorMessage(error.message);
+        }
     };
 
     return (
@@ -44,6 +84,12 @@ const Settings = ({ onClose }) => {
                         onClick={() => setActiveTab('anticheat')}
                     >
                         🛡️ Anti-Trampas
+                    </button>
+                    <button
+                        className={activeTab === 'backup' ? 'active' : ''}
+                        onClick={() => setActiveTab('backup')}
+                    >
+                        💾 Nube
                     </button>
                 </div>
 
@@ -271,6 +317,47 @@ const Settings = ({ onClose }) => {
                                 <p className="setting-description">
                                     Analiza la precisión de movimientos para detectar posible uso de motor de ajedrez.
                                 </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* BACKUP */}
+                    {activeTab === 'backup' && (
+                        <div className="settings-section">
+                            <div className="setting-item" style={{ textAlign: 'center', padding: '1rem' }}>
+                                <p style={{ marginBottom: '1rem' }}>
+                                    Guarda tu configuración y progreso en tu Google Drive personal.
+                                </p>
+
+                                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                    <button
+                                        className="btn-primary"
+                                        onClick={handleUploadBackup}
+                                        disabled={backupStatus === 'loading'}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                    >
+                                        💾 Guardar en Drive
+                                    </button>
+
+                                    <button
+                                        className="btn-secondary"
+                                        onClick={handleRestoreBackup}
+                                        disabled={backupStatus === 'loading'}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                    >
+                                        📥 Restaurar desde Drive
+                                    </button>
+                                </div>
+
+                                {backupStatus === 'loading' && <p style={{ marginTop: '1rem', color: '#aaa' }}>Cargando...</p>}
+                                {backupStatus === 'success' && <p style={{ marginTop: '1rem', color: '#4ade80' }}>✅ Operación exitosa</p>}
+                                {backupStatus === 'error' && <p style={{ marginTop: '1rem', color: '#ef4444' }}>❌ Error: {errorMessage}</p>}
+
+                                {!sessionStorage.getItem('google_access_token') && (
+                                    <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#eab308' }}>
+                                        ⚠️ Debes iniciar sesión con Google para usar esta función.
+                                    </p>
+                                )}
                             </div>
                         </div>
                     )}
