@@ -45,16 +45,18 @@ Si eres un asistente de IA reanudando el trabajo en este proyecto, por favor lee
 *   **Google Analytics**: Integración para estadísticas de uso
 *   **Google Drive Backup**: Sistema de respaldo automático de partidas
 
-### Correcciones de Build
-*   **Problema**: Build de Vercel fallaba con error de sintaxis
-*   **Causa**: Configuración incorrecta en `vercel.json`
-*   **Solución**: Eliminado `vercel.json` para detección automática de Vite
-*   **Resultado**: ✅ Build exitoso, todas las funcionalidades preservadas
+### Correcciones de Build ✅
+*   **Problema**: Build fallaba con "Adjacent JSX elements must be wrapped in an enclosing tag"
+*   **Causa**: Elementos JSX adyacentes sin envolver en `Lobby.jsx` líneas 313-376
+*   **Solución**: Envueltos elementos en React Fragment `<>...</>`
+*   **Commit**: `9697459`
+*   **Resultado**: ✅ Build exitoso, aplicación funcionando correctamente
 
 ### Correcciones de Código
 *   Corregidos errores de React Hooks en `App.jsx`
 *   Agregado script `build` en `package.json`
 *   Restaurado import de `Auth` necesario para `LandingPage`
+*   **Corregido error JSX en `Lobby.jsx`** - elementos adyacentes envueltos en fragmento
 
 ## Problemas Conocidos / Notas
 *   **OAuth de Lichess**: El flujo estándar de OAuth App está deshabilitado en favor de Tokens Personales debido a restricciones de registro. No intentar revertir al flujo basado en "Client ID" a menos que la política de Lichess cambie.
