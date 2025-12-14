@@ -760,14 +760,36 @@ const Lobby = ({ onConnect, myId, user }) => {
 
                                     {/* Tab Content */}
                                     {lichessTab === 'create' && (
-                                        <button
-                                            className="btn-primary"
-                                            onClick={handleCreateGame}
-                                            disabled={isSearchingLichess}
-                                            style={{ width: '100%' }}
-                                        >
-                                            {isSearchingLichess ? 'Buscando Oponente...' : 'Buscar en Lichess (10+0)'}
-                                        </button>
+                                        <div>
+                                            <button
+                                                className="btn-primary"
+                                                onClick={handleCreateGame}
+                                                disabled={isSearchingLichess}
+                                                style={{ width: '100%', marginBottom: '0.75rem' }}
+                                            >
+                                                {isSearchingLichess ? 'Buscando...' : 'Emparejar Partida'}
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    if (confirm('¿Quieres cambiar tu token de Lichess?')) {
+                                                        localStorage.removeItem('lichess_token');
+                                                        window.location.reload();
+                                                    }
+                                                }}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '0.5rem',
+                                                    background: 'transparent',
+                                                    border: '1px solid rgba(255,255,255,0.2)',
+                                                    borderRadius: '6px',
+                                                    color: '#94a3b8',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.85rem'
+                                                }}
+                                            >
+                                                Cambiar Token
+                                            </button>
+                                        </div>
                                     )}
                                     {lichessTab === 'challenges' && (
                                         <LichessChallenges
