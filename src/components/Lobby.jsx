@@ -986,9 +986,80 @@ const Lobby = ({ onConnect, myId, user }) => {
                         <p style={{ color: '#94a3b8', lineHeight: '1.6', marginBottom: '1.5rem' }}>
                             <strong>Opciones de donación:</strong>
                         </p>
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <p style={{ color: '#94a3b8', marginBottom: '0.5rem' }}>PayPal: <strong>tu-email@ejemplo.com</strong></p>
-                            <p style={{ color: '#94a3b8', marginBottom: '0.5rem' }}>Bitcoin: <strong>1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa</strong></p>
+                        <div style={{ marginBottom: '1.5rem', textAlign: 'left' }}>
+                            {/* Bitcoin */}
+                            <div style={{ marginBottom: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+                                <p style={{ color: '#94a3b8', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                                    <strong>Bitcoin (BTC):</strong>
+                                </p>
+                                <a
+                                    href="bitcoin:bc1plq8sspj4k0kn530geeh34ewxq9dk4df5ymunuxucwgh5sr8h2hcsf4c0hz"
+                                    style={{
+                                        color: '#3b82f6',
+                                        fontSize: '0.75rem',
+                                        wordBreak: 'break-all',
+                                        textDecoration: 'none',
+                                        display: 'block',
+                                        cursor: 'pointer'
+                                    }}
+                                    onClick={(e) => {
+                                        navigator.clipboard.writeText('bc1plq8sspj4k0kn530geeh34ewxq9dk4df5ymunuxucwgh5sr8h2hcsf4c0hz');
+                                    }}
+                                >
+                                    bc1plq8sspj4k0kn530geeh34ewxq9dk4df5ymunuxucwgh5sr8h2hcsf4c0hz
+                                </a>
+                            </div>
+
+                            {/* Lightning */}
+                            <div style={{ marginBottom: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+                                <p style={{ color: '#94a3b8', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                                    <strong>Lightning ⚡:</strong>
+                                </p>
+                                <a
+                                    href="lightning:lno1pgqppmsrse80qf0aara4slvcjxrvu6j2rp5ftmjy4yntlsmsutpkvkt6878s932cl82yjt2wy4uf0r3lmsqtn9v9qgkvdw3hw8hn6ds7e62nztf0qgpl6rmgd6uy7yghpexn8m5zzn5v8drcmuhl7pzxq4wget2h70ezp0sqxwe8r9gxaw482qhue30xctgxawxxq9l8wyjaas6v8d6gfskjh582nqhtgg875ms9pr4k2ewhmh37vtuwg99qyccdtmedh8ulmmmzkmacjgnhsr8m4uea79sq8wttnl33nevxzwwhqqeflsln4vlqqjed0hypkjt980e3vrk698js7vf8jkmsrz2zdyd5q4cf6urcmvjgyw22cn72rxse8unxw46q"
+                                    style={{
+                                        color: '#3b82f6',
+                                        fontSize: '0.85rem',
+                                        textDecoration: 'none',
+                                        display: 'block',
+                                        cursor: 'pointer'
+                                    }}
+                                    onClick={(e) => {
+                                        navigator.clipboard.writeText('lno1pgqppmsrse80qf0aara4slvcjxrvu6j2rp5ftmjy4yntlsmsutpkvkt6878s932cl82yjt2wy4uf0r3lmsqtn9v9qgkvdw3hw8hn6ds7e62nztf0qgpl6rmgd6uy7yghpexn8m5zzn5v8drcmuhl7pzxq4wget2h70ezp0sqxwe8r9gxaw482qhue30xctgxawxxq9l8wyjaas6v8d6gfskjh582nqhtgg875ms9pr4k2ewhmh37vtuwg99qyccdtmedh8ulmmmzkmacjgnhsr8m4uea79sq8wttnl33nevxzwwhqqeflsln4vlqqjed0hypkjt980e3vrk698js7vf8jkmsrz2zdyd5q4cf6urcmvjgyw22cn72rxse8unxw46q');
+                                    }}
+                                >
+                                    Click para abrir en billetera Lightning
+                                </a>
+                            </div>
+
+                            {/* PayPal */}
+                            <div style={{ marginBottom: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+                                <p style={{ color: '#94a3b8', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                                    <strong>PayPal:</strong>
+                                </p>
+                                <a
+                                    href="https://paypal.me/luvinRafael"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                        color: '#3b82f6',
+                                        fontSize: '0.9rem',
+                                        textDecoration: 'none'
+                                    }}
+                                >
+                                    luvinRafael@gmail.com
+                                </a>
+                            </div>
+
+                            {/* Binance */}
+                            <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+                                <p style={{ color: '#94a3b8', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                                    <strong>Binance:</strong>
+                                </p>
+                                <p style={{ color: '#3b82f6', fontSize: '0.9rem', margin: 0 }}>
+                                    luvinrafael@gmail.com
+                                </p>
+                            </div>
                         </div>
                         <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
                             ¡Gracias por tu apoyo! 🙏
