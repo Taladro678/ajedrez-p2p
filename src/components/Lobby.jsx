@@ -448,13 +448,26 @@ const Lobby = ({ onConnect, myId, user }) => {
                             </div>
 
                             {gameMode === 'lichess' && !lichessToken ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px' }}>
+                                    <div style={{ fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.4' }}>
+                                        <strong>Configuración Inicial:</strong><br />
+                                        Lichess requiere un token personal para jugar desde apps externas.
+                                    </div>
+
                                     <input
                                         type="text"
-                                        placeholder="Pega tu token de Lichess aquí (lip_...)"
+                                        placeholder="Pega tu token aquí (lip_...)"
                                         id="lichess-token-input"
-                                        style={{ padding: '0.8rem' }}
+                                        style={{
+                                            padding: '0.8rem',
+                                            background: '#0f172a',
+                                            border: '1px solid #334155',
+                                            color: 'white',
+                                            borderRadius: '6px',
+                                            fontSize: '0.9rem'
+                                        }}
                                     />
+
                                     <button
                                         className="btn-primary"
                                         onClick={() => {
@@ -462,14 +475,26 @@ const Lobby = ({ onConnect, myId, user }) => {
                                             if (token) {
                                                 localStorage.setItem('lichess_token', token);
                                                 window.location.reload();
+                                            } else {
+                                                alert("Por favor, pega el token primero.");
                                             }
                                         }}
                                     >
-                                        Guardar Token y Conectar
+                                        Guardar y Conectar
                                     </button>
-                                    <small style={{ color: '#aaa', fontSize: '0.75rem', textAlign: 'center' }}>
-                                        Obtén tu token en <a href="https://lichess.org/account/oauth/token/create" target="_blank" style={{ color: '#3b82f6' }}>Lichess &gt; Preferencias &gt; API</a>
-                                    </small>
+
+                                    <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '0.8rem', borderRadius: '6px', fontSize: '0.75rem', color: '#94a3b8' }}>
+                                        <strong>¿Cómo obtener el token?</strong>
+                                        <ol style={{ margin: '0.5rem 0 0 1.2rem', padding: 0 }}>
+                                            <li>Ve a <a href="https://lichess.org/account/oauth/token/create" target="_blank" style={{ color: '#60a5fa', textDecoration: 'underline' }}>Lichess Tokens</a></li>
+                                            <li>Activa todos los permisos de <strong>"Board" (Tablero)</strong>.</li>
+                                            <li>Dale al botón azul "Submit".</li>
+                                            <li>Copia el código y pégalo arriba.</li>
+                                        </ol>
+                                        <div style={{ marginTop: '0.5rem', fontStyle: 'italic', opacity: 0.8 }}>
+                                            *Solo necesitas hacer esto una vez.
+                                        </div>
+                                    </div>
                                 </div>
                             ) : (
                                 <button

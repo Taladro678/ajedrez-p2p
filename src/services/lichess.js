@@ -29,11 +29,27 @@ async function sha256(plain) {
 }
 
 export const lichessAuth = {
-    login() {
-        // OAuth flow deprecated in favor of Manual Token Entry for this version
-        console.log("Please enter token manually in the UI");
-        // Optional: Alert user if they somehow call this
-        alert("Por favor, introduce tu token manualmente en la pantalla principal.");
+    async login() {
+        const state = randomString(32);
+        const codeVerifier = randomString(128);
+        const codeChallenge = await sha256(codeVerifier);
+
+        localStorage.setItem('lichess_state', state);
+        localStorage.setItem('lichess_verifier', codeVerifier);
+
+        // NOTE: Lichess documentation is ambiguous about app registration for PKCE.
+        // If 'example-app-id' fails, we must find the correct method to get a Client ID.
+        const params = new URLSearchParams({
+            response_type: 'code',
+            client_id: CLIENT_ID,
+            redirect_uri: REDIRECT_URI,
+            scope: 'board:play challenge:read challenge:write',
+            state: state,
+            code_challenge: codeChallenge,
+            code_challenge_method: 'S256'
+        });
+
+        window.location.href = `${LICHESS_API_URL}/oauth?${params.toString()}`;
     },
 
     async handleCallback() {
