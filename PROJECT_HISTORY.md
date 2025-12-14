@@ -40,23 +40,33 @@ Si eres un asistente de IA reanudando el trabajo en este proyecto, por favor lee
 
 ### Nuevas Funcionalidades
 *   **Landing Page**: Nueva página de inicio antes de la autenticación
-*   **Video Chat**: Integración de videollamadas durante las partidas P2P
+*   **✅ Video Chat**: Videollamadas bidireccionales durante partidas P2P con WebRTC
 *   **Mensajes de Voz**: Capacidad de enviar mensajes de voz en el chat
 *   **Google Analytics**: Integración para estadísticas de uso
 *   **Google Drive Backup**: Sistema de respaldo automático de partidas
 
 ### Correcciones de Build ✅
 *   **Problema**: Build fallaba con "Adjacent JSX elements must be wrapped in an enclosing tag"
-*   **Causa**: Elementos JSX adyacentes sin envolver en `Lobby.jsx` líneas 313-376
+*   **Ubicación**: `Lobby.jsx` líneas 313-376 (menú de usuario)
+*   **Causa**: Tres elementos JSX adyacentes sin envolver en fragmento
 *   **Solución**: Envueltos elementos en React Fragment `<>...</>`
 *   **Commit**: `9697459`
-*   **Resultado**: ✅ Build exitoso, aplicación funcionando correctamente
+*   **Resultado**: ✅ Build exitoso, aplicación funcionando en localhost y Vercel
 
 ### Correcciones de Código
 *   Corregidos errores de React Hooks en `App.jsx`
 *   Agregado script `build` en `package.json`
 *   Restaurado import de `Auth` necesario para `LandingPage`
-*   **Corregido error JSX en `Lobby.jsx`** - elementos adyacentes envueltos en fragmento
+*   **Corregido error JSX en `Lobby.jsx`** - elementos del menú de usuario envueltos en fragmento
+*   **Corregido error de inicialización en `App.jsx`** - funciones reordenadas antes de su uso
+
+### Implementación de Video Chat (Commit `529874f`)
+*   **Hook `useVideoChat`**: Gestión de MediaStreams, permisos y controles
+*   **Componente `VideoChat`**: UI con video remoto (principal) y local (PiP)
+*   **Controles**: Mute/unmute audio, activar/desactivar video, minimizar, cerrar
+*   **Integración**: Botón "📹 Video" en header de partidas P2P
+*   **Responsive**: Diseño adaptado para móvil y desktop
+*   **WebRTC**: Streaming bidireccional via PeerJS
 
 ## Problemas Conocidos / Notas
 *   **OAuth de Lichess**: El flujo estándar de OAuth App está deshabilitado en favor de Tokens Personales debido a restricciones de registro. No intentar revertir al flujo basado en "Client ID" a menos que la política de Lichess cambie.
