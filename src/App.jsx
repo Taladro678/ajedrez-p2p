@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Peer from 'peerjs'
 import Lobby from './components/Lobby'
 import Game from './components/Game'
-import Auth from './components/Auth'
 import LandingPage from './components/LandingPage'
 import { auth } from './firebase'
 import { onAuthStateChanged } from 'firebase/auth'
@@ -19,6 +18,8 @@ function App() {
   const [isConnected, setIsConnected] = useState(false)
   const [myId, setMyId] = useState('')
   const [conn, setConn] = useState(null)
+  const [gameSettings, setGameSettings] = useState(null)
+  const [hostedGameId, setHostedGameId] = useState(null)
   const peerRef = useRef(null)
 
   // Listen for auth state changes globally
@@ -88,9 +89,9 @@ function App() {
         handleConnect(savedOpponent, JSON.parse(sessionStorage.getItem('gameSettings')));
       }
     }
-  }, [myId]);
+  }, [myId, isConnected, handleConnect]);
 
-  const setupConnection = (connection) => {
+  const setupConnection = useCallback((connection) => {
     connection.on('open', () => {
       console.log('Connected to:', connection.peer);
     });
@@ -105,13 +106,9 @@ function App() {
       console.error('Connection error:', err);
       // alert('Error de conexión: ' + err);
     });
-  };
+  }, []);
 
-  const [gameSettings, setGameSettings] = useState(null);
-
-  const [hostedGameId, setHostedGameId] = useState(null);
-
-  const handleConnect = (opponentId, settings, gameId = null) => {
+  const handleConnect = useCallback((opponentId, settings, gameId = null) => {
     setGameSettings(settings);
     setHostedGameId(gameId); // Store the Firebase ID of the hosted game
     sessionStorage.setItem('gameSettings', JSON.stringify(settings));
@@ -143,7 +140,7 @@ function App() {
     setConn(connection);
     setupConnection(connection);
     setIsConnected(true);
-  };
+  }, [setupConnection]);
 
   const handleDisconnect = () => {
     if (conn) {
