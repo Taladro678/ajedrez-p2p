@@ -839,209 +839,213 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                                                 }}
                                                 onClick={() => setCurrentAnalysisMove(i)}
                                                 title={`Jugada ${i + 1}: ${score > 0 ? '+' : ''}${score.toFixed(2)}`}
-                            </div>
-                        </div>
-
-                            {/* Statistics & Engine Detection */}
-                            {(() => {
-                                const stats = detectEngineUsage();
-                                if (!stats) return null;
-
-                                return (
-                                    <div style={{
-                                        background: stats.suspicious ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)',
-                                        border: `1px solid ${stats.suspicious ? '#ef4444' : '#22c55e'}`,
-                                        borderRadius: '6px',
-                                        padding: '0.75rem',
-                                        marginBottom: '1rem'
-                                    }}>
-                                        <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
-                                            {stats.suspicious ? '⚠️ Posible uso de motor' : '✅ Juego humano'}
-                                        </div>
-                                        <div style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>
-                                            <div>Precisión: {stats.accuracy}%</div>
-                                            <div>Jugadas perfectas: {stats.perfectMoves}/{stats.totalMoves} ({stats.perfectRate}%)</div>
-                                            <div>Jugadas buenas: {stats.goodMoves}/{stats.totalMoves}</div>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-
-                            {/* Move List */}
-                            <div style={{ fontSize: '0.85rem' }}>
-                                <div style={{ color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 'bold' }}>Jugadas analizadas:</div>
-                                {analysisResults.map((result, i) => {
-                                    if (!result) return null;
-                                    const moveNum = Math.floor(i / 2) + 1;
-                                    const isWhite = i % 2 === 0;
-                                    const moveLabel = isWhite ? `${moveNum}.` : `${moveNum}...`;
-
-                                    // Classify move quality
-                                    let classification = { type: 'ok', label: '', color: '#94a3b8' };
-                                    if (i > 0 && analysisResults[i - 1]) {
-                                        classification = classifyMove(analysisResults[i - 1].score, result.score);
-                                    }
-
-                                    return (
-                                        <div
-                                            key={i}
-                                            style={{
-                                                padding: '0.5rem',
-                                                background: currentAnalysisMove === i ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255,255,255,0.03)',
-                                                borderRadius: '4px',
-                                                marginBottom: '0.25rem',
-                                                cursor: 'pointer',
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                border: currentAnalysisMove === i ? '1px solid #3b82f6' : '1px solid transparent'
-                                            }}
-                                            onClick={() => setCurrentAnalysisMove(i)}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <span style={{ color: isWhite ? '#fff' : '#94a3b8', fontWeight: 'bold' }}>{moveLabel}</span>
-                                                <span style={{ color: '#cbd5e1' }}>Jugada {i + 1}</span>
-                                                {classification.label && (
-                                                    <span style={{
-                                                        color: classification.color,
-                                                        fontWeight: 'bold',
-                                                        fontSize: '0.85rem'
-                                                    }}>
-                                                        {classification.label}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <span style={{
-                                                color: result.score > 0 ? '#22c55e' : '#ef4444',
-                                                fontWeight: 'bold',
-                                                fontSize: '0.9rem'
-                                            }}>
-                                                {result.score > 0 ? '+' : ''}{result.score.toFixed(2)}
-                                            </span>
+                                            />
                                         </div>
                                     );
                                 })}
                             </div>
                         </div>
-                        )
+
+                        {/* Statistics & Engine Detection */}
+                        {(() => {
+                            const stats = detectEngineUsage();
+                            if (!stats) return null;
+
+                            return (
+                                <div style={{
+                                    background: stats.suspicious ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+                                    border: `1px solid ${stats.suspicious ? '#ef4444' : '#22c55e'}`,
+                                    borderRadius: '6px',
+                                    padding: '0.75rem',
+                                    marginBottom: '1rem'
+                                }}>
+                                    <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                                        {stats.suspicious ? '⚠️ Posible uso de motor' : '✅ Juego humano'}
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>
+                                        <div>Precisión: {stats.accuracy}%</div>
+                                        <div>Jugadas perfectas: {stats.perfectMoves}/{stats.totalMoves} ({stats.perfectRate}%)</div>
+                                        <div>Jugadas buenas: {stats.goodMoves}/{stats.totalMoves}</div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        {/* Move List */}
+                        <div style={{ fontSize: '0.85rem' }}>
+                            <div style={{ color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 'bold' }}>Jugadas analizadas:</div>
+                            {analysisResults.map((result, i) => {
+                                if (!result) return null;
+                                const moveNum = Math.floor(i / 2) + 1;
+                                const isWhite = i % 2 === 0;
+                                const moveLabel = isWhite ? `${moveNum}.` : `${moveNum}...`;
+
+                                // Classify move quality
+                                let classification = { type: 'ok', label: '', color: '#94a3b8' };
+                                if (i > 0 && analysisResults[i - 1]) {
+                                    classification = classifyMove(analysisResults[i - 1].score, result.score);
+                                }
+
+                                return (
+                                    <div
+                                        key={i}
+                                        style={{
+                                            padding: '0.5rem',
+                                            background: currentAnalysisMove === i ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255,255,255,0.03)',
+                                            borderRadius: '4px',
+                                            marginBottom: '0.25rem',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            border: currentAnalysisMove === i ? '1px solid #3b82f6' : '1px solid transparent'
+                                        }}
+                                        onClick={() => setCurrentAnalysisMove(i)}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <span style={{ color: isWhite ? '#fff' : '#94a3b8', fontWeight: 'bold' }}>{moveLabel}</span>
+                                            <span style={{ color: '#cbd5e1' }}>Jugada {i + 1}</span>
+                                            {classification.label && (
+                                                <span style={{
+                                                    color: classification.color,
+                                                    fontWeight: 'bold',
+                                                    fontSize: '0.85rem'
+                                                }}>
+                                                    {classification.label}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span style={{
+                                            color: result.score > 0 ? '#22c55e' : '#ef4444',
+                                            fontWeight: 'bold',
+                                            fontSize: '0.9rem'
+                                        }}>
+                                            {result.score > 0 ? '+' : ''}{result.score.toFixed(2)}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )
                 }
 
-                        {/* CHAT */}
-                        <div className={`chat-section ${isChatOpen ? 'open' : ''}`}>
-                            <div className="chat-header">
-                                <span>Chat de Partida</span>
-                                <button
-                                    className="secondary"
-                                    style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }}
-                                    onClick={() => setIsChatOpen(false)}
-                                >
-                                    ▼
-                                </button>
-                            </div>
-                            <div className="chat-messages">
-                                <div className="message system">Inicio de la partida</div>
-                                {messages.map((msg, i) => (
-                                    <div key={i} className={`message ${msg.sender === 'Tú' ? 'own' : 'opponent'}`}>
-                                        {msg.type === 'voice' ? (
-                                            <div className="voice-message">
-                                                <button onClick={() => {
-                                                    const audio = new Audio(msg.audio);
-                                                    audio.play();
-                                                }} style={{
-                                                    background: 'rgba(59, 130, 246, 0.2)',
-                                                    border: 'none',
-                                                    padding: '0.5rem',
-                                                    borderRadius: '8px',
-                                                    color: '#3b82f6',
-                                                    cursor: 'pointer',
-                                                    fontSize: '0.9rem'
-                                                }}>
-                                                    ▶️ Mensaje de voz ({msg.duration}s)
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <><strong>{msg.sender}:</strong> {msg.text}</>
-                                        )}
+                {/* CHAT */}
+                <div className={`chat-section ${isChatOpen ? 'open' : ''}`}>
+                    <div className="chat-header">
+                        <span>Chat de Partida</span>
+                        <button
+                            className="secondary"
+                            style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }}
+                            onClick={() => setIsChatOpen(false)}
+                        >
+                            ▼
+                        </button>
+                    </div>
+                    <div className="chat-messages">
+                        <div className="message system">Inicio de la partida</div>
+                        {messages.map((msg, i) => (
+                            <div key={i} className={`message ${msg.sender === 'Tú' ? 'own' : 'opponent'}`}>
+                                {msg.type === 'voice' ? (
+                                    <div className="voice-message">
+                                        <button onClick={() => {
+                                            const audio = new Audio(msg.audio);
+                                            audio.play();
+                                        }} style={{
+                                            background: 'rgba(59, 130, 246, 0.2)',
+                                            border: 'none',
+                                            padding: '0.5rem',
+                                            borderRadius: '8px',
+                                            color: '#3b82f6',
+                                            cursor: 'pointer',
+                                            fontSize: '0.9rem'
+                                        }}>
+                                            ▶️ Mensaje de voz ({msg.duration}s)
+                                        </button>
                                     </div>
-                                ))}
-                                <div ref={messagesEndRef} />
+                                ) : (
+                                    <><strong>{msg.sender}:</strong> {msg.text}</>
+                                )}
                             </div>
+                        ))}
+                        <div ref={messagesEndRef} />
+                    </div>
 
-                            {/* QUICK CHAT & EMOJIS */}
-                            <div className="quick-actions" style={{ padding: '0.5rem', display: 'flex', gap: '0.5rem', overflowX: 'auto', background: 'var(--surface-color)' }}>
-                                {['👍', '👏', '😂', '🤔', '😭', '😡'].map(emoji => (
-                                    <button key={emoji} className="secondary" style={{ padding: '0.3rem', fontSize: '1.2rem', minWidth: 'auto' }} onClick={() => {
-                                        setInputText(prev => prev + emoji);
-                                    }}>{emoji}</button>
-                                ))}
-                            </div>
-                            <div className="quick-chat" style={{ padding: '0 0.5rem 0.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', background: 'var(--surface-color)' }}>
-                                {['Hola', 'Buena partida', 'Gracias', 'Ups', 'Jaque', 'Rematch?'].map(text => (
-                                    <button key={text} className="secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', whiteSpace: 'nowrap' }} onClick={() => {
-                                        const msg = { sender: 'Tú', text };
-                                        setMessages(prev => [...prev, msg]);
-                                        if (connection) connection.send({ type: 'chat', message: text });
-                                    }}>{text}</button>
-                                ))}
-                            </div>
+                    {/* QUICK CHAT & EMOJIS */}
+                    <div className="quick-actions" style={{ padding: '0.5rem', display: 'flex', gap: '0.5rem', overflowX: 'auto', background: 'var(--surface-color)' }}>
+                        {['👍', '👏', '😂', '🤔', '😭', '😡'].map(emoji => (
+                            <button key={emoji} className="secondary" style={{ padding: '0.3rem', fontSize: '1.2rem', minWidth: 'auto' }} onClick={() => {
+                                setInputText(prev => prev + emoji);
+                            }}>{emoji}</button>
+                        ))}
+                    </div>
+                    <div className="quick-chat" style={{ padding: '0 0.5rem 0.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', background: 'var(--surface-color)' }}>
+                        {['Hola', 'Buena partida', 'Gracias', 'Ups', 'Jaque', 'Rematch?'].map(text => (
+                            <button key={text} className="secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', whiteSpace: 'nowrap' }} onClick={() => {
+                                const msg = { sender: 'Tú', text };
+                                setMessages(prev => [...prev, msg]);
+                                if (connection) connection.send({ type: 'chat', message: text });
+                            }}>{text}</button>
+                        ))}
+                    </div>
 
-                            <div className="chat-input">
-                                {/* Botón de audio estilo WhatsApp */}
-                                <button
-                                    className="voice-btn"
-                                    onMouseDown={startRecording}
-                                    onMouseUp={handleVoiceMessage}
-                                    onTouchStart={startRecording}
-                                    onTouchEnd={handleVoiceMessage}
-                                    style={{
-                                        background: isRecording ? '#ef4444' : '#3b82f6',
-                                        border: 'none',
-                                        padding: '0.6rem',
-                                        borderRadius: '50%',
-                                        cursor: 'pointer',
-                                        fontSize: '1.2rem',
-                                        transition: 'all 0.2s',
-                                        minWidth: '40px',
-                                        height: '40px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    {isRecording ? `🔴 ${recordingTime}s` : '🎤'}
-                                </button>
-                                <input
-                                    type="text"
-                                    placeholder="Escribe..."
-                                    value={inputText}
-                                    onChange={e => setInputText(e.target.value)}
-                                    onKeyPress={e => e.key === 'Enter' && sendMessage()}
-                                />
-                                <button onClick={sendMessage}>Enviar</button>
-                            </div>
-                        </div>
-                    </div >
+                    <div className="chat-input">
+                        {/* Botón de audio estilo WhatsApp */}
+                        <button
+                            className="voice-btn"
+                            onMouseDown={startRecording}
+                            onMouseUp={handleVoiceMessage}
+                            onTouchStart={startRecording}
+                            onTouchEnd={handleVoiceMessage}
+                            style={{
+                                background: isRecording ? '#ef4444' : '#3b82f6',
+                                border: 'none',
+                                padding: '0.6rem',
+                                borderRadius: '50%',
+                                cursor: 'pointer',
+                                fontSize: '1.2rem',
+                                transition: 'all 0.2s',
+                                minWidth: '40px',
+                                height: '40px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            {isRecording ? `🔴 ${recordingTime}s` : '🎤'}
+                        </button>
+                        <input
+                            type="text"
+                            placeholder="Escribe..."
+                            value={inputText}
+                            onChange={e => setInputText(e.target.value)}
+                            onKeyPress={e => e.key === 'Enter' && sendMessage()}
+                        />
+                        <button onClick={sendMessage}>Enviar</button>
+                    </div>
+                </div>
+            </div >
         </div >
-            );
+    );
 };
 
-            // --- SOUNDS ---
-            const SOUNDS = {
-                move: new Audio('/sounds/move.mp3'),
-            capture: new Audio('/sounds/capture.mp3'),
-            notify: new Audio('/sounds/notify.mp3'),
-            check: new Audio('/sounds/check.mp3'),
-            castle: new Audio('/sounds/castle.mp3'),
-            win: new Audio('/sounds/win.mp3'),
-            lose: new Audio('/sounds/lose.mp3'),
-            draw: new Audio('/sounds/draw.mp3')
+// --- SOUNDS ---
+const SOUNDS = {
+    move: new Audio('/sounds/move.mp3'),
+    capture: new Audio('/sounds/capture.mp3'),
+    notify: new Audio('/sounds/notify.mp3'),
+    check: new Audio('/sounds/check.mp3'),
+    castle: new Audio('/sounds/castle.mp3'),
+    win: new Audio('/sounds/win.mp3'),
+    lose: new Audio('/sounds/lose.mp3'),
+    draw: new Audio('/sounds/draw.mp3')
 };
 
 const playSound = (type) => {
     try {
-                console.log(`Attempting to play sound: ${type}`);
-            if (SOUNDS[type]) {
-                SOUNDS[type].currentTime = 0;
+        console.log(`Attempting to play sound: ${type}`);
+        if (SOUNDS[type]) {
+            SOUNDS[type].currentTime = 0;
             const promise = SOUNDS[type].play();
             if (promise !== undefined) {
                 promise.then(() => {
@@ -1051,11 +1055,11 @@ const playSound = (type) => {
                 });
             }
         } else {
-                console.warn(`Sound ${type} not found in SOUNDS object`);
+            console.warn(`Sound ${type} not found in SOUNDS object`);
         }
     } catch (e) {
-                console.error("Critical error in playSound:", e);
+        console.error("Critical error in playSound:", e);
     }
 };
 
-            export default Game;
+export default Game;
