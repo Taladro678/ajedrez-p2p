@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Chess } from 'chess.js';
 import { useVideoChat } from '../hooks/useVideoChat';
+import { useVoiceMessage } from '../hooks/useVoiceMessage';
 import VideoChat from './VideoChat';
 
 // --- IMÁGENES DE PIEZAS ---
@@ -101,8 +102,50 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
         isInitializing,
         toggleVideo: handleToggleVideo,
         toggleAudio: handleToggleAudio,
-        cleanup: cleanupVideo
+        cleanup: cleanupVideo,
+        initializeMedia
     } = useVideoChat(connection, connection !== null);
+
+    // Inicializar video chat cuando se muestra
+    useEffect(() => {
+        if (showVideoChat && !localStream && !isInitializing) {
+            initializeMedia();
+        }
+    }, [showVideoChat, localStream, isInitializing, initializeMedia]);
+
+    // --- VOICE MESSAGE LOGIC ---
+    const {
+        isRecording,
+        recordingTime,
+        startRecording,
+        stopRecording
+    } = useVoiceMessage();
+
+    const handleVoiceMessage = async () => {
+        const audioBlob = await stopRecording();
+        if (audioBlob) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64Audio = reader.result;
+
+                if (connection) {
+                    connection.send({
+                        type: 'voice',
+                        audio: base64Audio,
+                        duration: recordingTime
+                    });
+                }
+
+                setMessages(prev => [...prev, {
+                    sender: 'Tú',
+                    type: 'voice',
+                    audio: base64Audio,
+                    duration: recordingTime
+                }]);
+            };
+            reader.readAsDataURL(audioBlob);
+        }
+    };
 
 
     // --- STOCKFISH INIT ---
@@ -621,7 +664,26 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                         <div className="message system">Inicio de la partida</div>
                         {messages.map((msg, i) => (
                             <div key={i} className={`message ${msg.sender === 'Tú' ? 'own' : 'opponent'}`}>
-                                <strong>{msg.sender}:</strong> {msg.text}
+                                {msg.type === 'voice' ? (
+                                    <div className="voice-message">
+                                        <button onClick={() => {
+                                            const audio = new Audio(msg.audio);
+                                            audio.play();
+                                        }} style={{
+                                            background: 'rgba(59, 130, 246, 0.2)',
+                                            border: 'none',
+                                            padding: '0.5rem',
+                                            borderRadius: '8px',
+                                            color: '#3b82f6',
+                                            cursor: 'pointer',
+                                            fontSize: '0.9rem'
+                                        }}>
+                                            ▶️ Mensaje de voz ({msg.duration}s)
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <><strong>{msg.sender}:</strong> {msg.text}</>
+                                )}
                             </div>
                         ))}
                         <div ref={messagesEndRef} />
@@ -646,6 +708,30 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                     </div>
 
                     <div className="chat-input">
+                        {/* Botón de audio estilo WhatsApp */}
+                        <button
+                            className="voice-btn"
+                            onMouseDown={startRecording}
+                            onMouseUp={handleVoiceMessage}
+                            onTouchStart={startRecording}
+                            onTouchEnd={handleVoiceMessage}
+                            style={{
+                                background: isRecording ? '#ef4444' : '#3b82f6',
+                                border: 'none',
+                                padding: '0.6rem',
+                                borderRadius: '50%',
+                                cursor: 'pointer',
+                                fontSize: '1.2rem',
+                                transition: 'all 0.2s',
+                                minWidth: '40px',
+                                height: '40px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            {isRecording ? `🔴 ${recordingTime}s` : '🎤'}
+                        </button>
                         <input
                             type="text"
                             placeholder="Escribe..."
