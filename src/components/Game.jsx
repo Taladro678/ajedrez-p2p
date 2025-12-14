@@ -153,34 +153,31 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
     };
 
 
-    // --- STOCKFISH INIT ---
+    // --- STOCKFISH INITIALIZATION (ALL MODES) ---
     useEffect(() => {
-        if (internalSettings?.gameMode === 'computer') {
-            const initStockfish = async () => {
-                try {
-                    const response = await fetch('/stockfish.js');
-                    const blob = await response.blob();
-                    const objectUrl = URL.createObjectURL(blob);
-                    const worker = new Worker(objectUrl);
-                    engine.current = worker;
-
-                    worker.onmessage = (event) => {
-                        const message = event.data;
-                        if (typeof message === 'string' && message.startsWith('bestmove')) {
-                            const move = message.split(' ')[1];
-                            safeMakeMove(move);
-                        }
-                    };
-                    worker.postMessage('uci');
-                    worker.postMessage('isready');
-                } catch (error) {
-                    console.error("Error loading Stockfish:", error);
-                }
-            };
-            initStockfish();
-            return () => { if (engine.current) engine.current.terminate(); };
-        }
-    }, [internalSettings]);
+        // Always load Stockfish for background analysis and anti-cheat
+        const initStockfish = async () => {
+            try {
+                const worker = new Worker('/stockfish.js');
+                engine.current = worker;
+                worker.onmessage = (e) => {
+                    const message = e.data;
+                    // Only auto-move in computer mode
+                    if (internalSettings?.gameMode === 'computer' && message.startsWith('bestmove')) {
+                        const move = message.split(' ')[1];
+                        safeMakeMove(move);
+                    }
+                };
+                worker.postMessage('uci');
+                worker.postMessage('isready');
+                console.log('Stockfish loaded for analysis');
+            } catch (error) {
+                console.error("Error loading Stockfish:", error);
+            }
+        };
+        initStockfish();
+        return () => { if (engine.current) engine.current.terminate(); };
+    }, []);
 
     // --- COMPUTER MOVE TRIGGER ---
     useEffect(() => {
