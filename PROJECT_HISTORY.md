@@ -1,6 +1,6 @@
 # Historial y Estado del Proyecto
 
-**Última Actualización:** 14 de diciembre de 2024 (11:40 AM)
+**Última Actualización:** 14 de diciembre de 2024 (12:03 PM)
 **Proyecto:** Ajedrez P2P + Integración con Lichess
 **Repositorio:** [https://github.com/Taladro678/ajedrez-p2p](https://github.com/Taladro678/ajedrez-p2p)
 **URL Desplegada:** [https://ajedrez-p2p.vercel.app](https://ajedrez-p2p.vercel.app)
