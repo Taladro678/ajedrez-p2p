@@ -83,18 +83,20 @@ export function useVideoChat(conn, isConnected) {
 
     // Initialize media when connected
     useEffect(() => {
-        if (isConnected && !localStream && conn) {
+        if (isConnected && !localStream) {
             initializeMedia();
         }
-    }, [isConnected, localStream, conn, initializeMedia]);
+    }, [isConnected, localStream, initializeMedia]);
 
     // Handle incoming and outgoing calls via PeerJS
     useEffect(() => {
-        if (!conn || !conn.peer || !localStream) return;
+        if (!conn || !localStream || !conn.peer) return;
+
+        const remotePeerId = conn.peer;
 
         // Make a call with local stream
-        if (conn.peer.call) {
-            const call = conn.peer.call(conn.peer, localStream);
+        if (window.peerInstance && window.peerInstance.call) {
+            const call = window.peerInstance.call(remotePeerId, localStream);
             callRef.current = call;
 
             call.on('stream', (stream) => {
@@ -113,8 +115,8 @@ export function useVideoChat(conn, isConnected) {
         }
 
         // Answer incoming calls
-        if (conn.peer.on) {
-            conn.peer.on('call', (call) => {
+        if (window.peerInstance && window.peerInstance.on) {
+            const handleIncomingCall = (call) => {
                 console.log('Answering incoming call');
                 call.answer(localStream);
                 callRef.current = call;
@@ -128,7 +130,15 @@ export function useVideoChat(conn, isConnected) {
                     console.log('Incoming call closed');
                     setRemoteStream(null);
                 });
-            });
+            };
+
+            window.peerInstance.on('call', handleIncomingCall);
+
+            return () => {
+                if (window.peerInstance && window.peerInstance.off) {
+                    window.peerInstance.off('call', handleIncomingCall);
+                }
+            };
         }
     }, [conn, localStream]);
 

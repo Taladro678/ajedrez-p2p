@@ -98,6 +98,7 @@ function App() {
   useEffect(() => {
     const peer = new Peer(sessionStorage.getItem('myId') || undefined);
     peerRef.current = peer;
+    window.peerInstance = peer; // Hacer accesible globalmente para useVideoChat
 
     peer.on('open', (id) => {
       setMyId(id);
@@ -125,6 +126,7 @@ function App() {
 
     return () => {
       peer.destroy();
+      window.peerInstance = null;
     };
   }, []);
 
