@@ -3,6 +3,7 @@ import Peer from 'peerjs'
 import Lobby from './components/Lobby'
 import Game from './components/Game'
 import Auth from './components/Auth'
+import LandingPage from './components/LandingPage'
 import { auth } from './firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 import { SettingsProvider } from './contexts/SettingsContext'
@@ -14,6 +15,7 @@ import { LichessConnection } from './utils/lichessAdapter'
 
 function App() {
   const [user, setUser] = useState(null)
+  const [isGuest, setIsGuest] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
   const [myId, setMyId] = useState('')
   const [conn, setConn] = useState(null)
@@ -158,8 +160,8 @@ function App() {
   return (
     <SettingsProvider>
       <div className="app-main">
-        {!user ? (
-          <Auth />
+        {(!user && !isGuest) ? (
+          <LandingPage onGuestPlay={() => setIsGuest(true)} />
         ) : (
           <>
             {isConnected ? (
@@ -169,12 +171,14 @@ function App() {
                 settings={gameSettings}
                 hostedGameId={hostedGameId}
                 user={user}
+                peer={peerRef.current}
               />
             ) : (
               <Lobby onConnect={handleConnect} myId={myId} user={user} />
             )}
           </>
         )}
+
       </div>
     </SettingsProvider>
   )

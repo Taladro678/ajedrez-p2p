@@ -21,7 +21,7 @@ const PIECE_IMAGES = {
     }
 };
 
-const Game = ({ onDisconnect, connection, settings, hostedGameId }) => {
+const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
     const [game, setGame] = useState(new Chess());
     const [orientation, setOrientation] = useState('white');
     const [selectedSquare, setSelectedSquare] = useState(null);
@@ -83,8 +83,136 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId }) => {
                     });
                 });
             }
+            // Close video call if exists
+            if (activeCall) activeCall.close();
+            if (myStream) myStream.getTracks().forEach(track => track.stop());
         };
     }, [connection, hostedGameId]);
+
+    // --- VIDEO CALL LOGIC ---
+    const [myStream, setMyStream] = useState(null);
+    const [remoteStream, setRemoteStream] = useState(null);
+    const [activeCall, setActiveCall] = useState(null);
+    const [isVideoOpen, setIsVideoOpen] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
+    const [isVideoOff, setIsVideoOff] = useState(false);
+
+    const remoteVideoRef = useRef(null);
+    const localVideoRef = useRef(null);
+
+    // Initial stream setup (lazy)
+    const startLocalStream = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            setMyStream(stream);
+            return stream;
+        } catch (err) {
+            console.error("Error accessing media devices:", err);
+            alert("No se pudo acceder a la cámara/micrófono");
+            return null;
+        }
+    };
+
+    // Handle incoming calls
+    useEffect(() => {
+        if (!peer) return;
+
+        peer.on('call', (call) => {
+            console.log('Receiving call from:', call.peer);
+
+            // Auto-answer logic or UI prompt
+            // For this app, let's auto-answer if we are already in game, or prompt
+            // We'll prompt with a simple confirm/alert for now or just set a state
+
+            // To answer, we need our stream.
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                .then((stream) => {
+                    setMyStream(stream);
+                    call.answer(stream);
+                    setActiveCall(call);
+                    setIsVideoOpen(true);
+
+                    call.on('stream', (remoteStream) => {
+                        setRemoteStream(remoteStream);
+                    });
+
+                    call.on('close', () => {
+                        handleEndCall();
+                    });
+                })
+                .catch(err => {
+                    console.error('Failed to get local stream', err);
+                });
+        });
+    }, [peer]);
+
+    // Make a call
+    const handleCallPeer = async () => {
+        if (!connection || !connection.peer || !peer) return;
+
+        const stream = await startLocalStream();
+        if (!stream) return;
+
+        const call = peer.call(connection.peer, stream);
+        setActiveCall(call);
+        setIsVideoOpen(true);
+
+        call.on('stream', (remoteStream) => {
+            setRemoteStream(remoteStream);
+        });
+
+        call.on('close', () => {
+            handleEndCall();
+        });
+    };
+
+    const handleEndCall = () => {
+        if (activeCall) activeCall.close();
+        setActiveCall(null);
+        setRemoteStream(null);
+        setIsVideoOpen(false);
+        // Don't stop local stream automatically, maybe they want to call again? Or do stop to save battery.
+        // Let's stop it.
+        if (myStream) {
+            myStream.getTracks().forEach(track => track.stop());
+            setMyStream(null);
+        }
+    };
+
+    // Toggle Mute
+    const toggleMute = () => {
+        if (myStream) {
+            myStream.getAudioTracks().forEach(track => track.enabled = !track.enabled);
+            setIsMuted(!isMuted);
+        }
+    };
+
+    // Toggle Video
+    const toggleVideo = () => {
+        if (myStream) {
+            myStream.getVideoTracks().forEach(track => track.enabled = !track.enabled);
+            setIsVideoOff(!isVideoOff);
+        }
+    };
+
+    // Update video elements when streams change
+    useEffect(() => {
+        if (localVideoRef.current && myStream) {
+            localVideoRef.current.srcObject = myStream;
+        }
+        if (remoteVideoRef.current && remoteStream) {
+            remoteVideoRef.current.srcObject = remoteStream;
+        }
+    }, [myStream, remoteStream, isVideoOpen]);
+
+    // NOTE: We need the 'peer' instance to answer/make calls. 
+    // Current Game props: { onDisconnect, connection, settings, hostedGameId, user }
+    // We should probably modify App.jsx to pass 'peer' or handle calls there.
+    // However, for now, let's implement the UI and logic assuming we receive 'peer' or can access it.
+
+    // Let's rely on a new prop 'peer' being passed, OR use the context pattern if we had one.
+    // I will add 'peer' to the props in the next step.
+
 
     // --- STOCKFISH INIT ---
     useEffect(() => {
@@ -491,11 +619,63 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId }) => {
                 <div style={{ fontWeight: 'bold', color: '#aaa', fontSize: '0.9rem' }}>
                     {winner ? `🏆 ${winner}` : (game.inCheck() ? '⚠️ JAQUE' : 'Partida en Curso')}
                 </div>
-                <div>
-                    <button onClick={() => setOrientation(o => o === 'white' ? 'black' : 'white')} style={{ marginRight: '10px', padding: '4px 8px', fontSize: '0.8rem' }}>Rotar</button>
+                <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                    {/* Call Button */}
+                    {!activeCall && !activeCall && connection && connection.peer && (
+                        <button
+                            onClick={handleCallPeer}
+                            style={{
+                                padding: '4px 8px',
+                                fontSize: '0.8rem',
+                                background: '#3b82f6',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                            }}
+                        >
+                            📹 Llamar
+                        </button>
+                    )}
+
+                    <button onClick={() => setOrientation(o => o === 'white' ? 'black' : 'white')} style={{ padding: '4px 8px', fontSize: '0.8rem' }}>Rotar</button>
                     <button className="secondary" onClick={onDisconnect} style={{ padding: '4px 8px', fontSize: '0.8rem' }}>Salir</button>
                 </div>
             </header>
+
+            {/* VIDEO CHAT OVERLAY */}
+            <div className="video-overlay" style={{ display: isVideoOpen ? 'flex' : 'none' }}>
+                <div className="remote-video-container">
+                    <video ref={remoteVideoRef} autoPlay playsInline />
+                    <div className="local-video-container">
+                        <video ref={localVideoRef} autoPlay playsInline muted />
+                    </div>
+                </div>
+                <div className="video-controls">
+                    <button
+                        className={`video-btn ${isMuted ? 'mute' : 'mute'}`}
+                        style={{ background: isMuted ? '#ef4444' : '#64748b' }}
+                        onClick={toggleMute}
+                        title={isMuted ? "Activar Micrófono" : "Silenciar"}
+                    >
+                        {isMuted ? '🔇' : '🎤'}
+                    </button>
+                    <button
+                        className={`video-btn camera`}
+                        style={{ background: isVideoOff ? '#ef4444' : '#3b82f6' }}
+                        onClick={toggleVideo}
+                        title={isVideoOff ? "Activar Cámara" : "Apagar Cámara"}
+                    >
+                        {isVideoOff ? '🚫' : '📷'}
+                    </button>
+                    <button
+                        className="video-btn hangup"
+                        onClick={handleEndCall}
+                        title="Colgar"
+                    >
+                        📞
+                    </button>
+                </div>
+            </div>
 
             {/* CHAT TOGGLE FAB (Mobile) - Only show when chat is CLOSED */}
             {!isChatOpen && (

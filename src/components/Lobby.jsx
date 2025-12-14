@@ -239,23 +239,25 @@ const Lobby = ({ onConnect, myId, user }) => {
         <div className="lobby-container">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h1>Ajedrez P2P</h1>
-                <button
-                    onClick={() => setShowSettings(true)}
-                    style={{
-                        padding: '0.6rem 1rem',
-                        fontSize: '0.9rem',
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        borderRadius: '6px',
-                        color: 'var(--on-background)',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s'
-                    }}
-                    onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
-                    onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
-                >
-                    ⚙️ Configuración
-                </button>
+                {!user && (
+                    <button
+                        onClick={() => setShowSettings(true)}
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            fontSize: '1.2rem',
+                            cursor: 'pointer',
+                            padding: '0.5rem',
+                            borderRadius: '50%',
+                            transition: 'background 0.2s'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                        onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                        title="Configuración"
+                    >
+                        ⚙️
+                    </button>
+                )}
             </div>
             <div className="card">
                 {/* COLUMNA IZQUIERDA: Configuración */}
@@ -310,6 +312,32 @@ const Lobby = ({ onConnect, myId, user }) => {
 
                                 {showUserMenu && (
                                     <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowUserMenu(false);
+                                            setShowSettings(true);
+                                        }}
+                                        style={{
+                                            padding: '0.5rem',
+                                            fontSize: '0.85rem',
+                                            textAlign: 'left',
+                                            background: 'transparent',
+                                            border: 'none',
+                                            color: '#e2e8f0',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            width: '100%',
+                                            borderRadius: '4px'
+                                        }}
+                                        onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                                        onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                                    >
+                                        ⚙️ Configuración
+                                    </button>
+                                    <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '0.2rem 0' }}></div>
+                                    <button
                                         onClick={async (e) => {
                                             e.stopPropagation();
                                             try {
@@ -329,7 +357,10 @@ const Lobby = ({ onConnect, myId, user }) => {
                                             borderRadius: '4px',
                                             cursor: 'pointer',
                                             transition: 'all 0.2s',
-                                            animation: 'slideUp 0.2s ease-out'
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            width: '100%'
                                         }}
                                         onMouseOver={(e) => {
                                             e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
