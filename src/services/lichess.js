@@ -29,25 +29,11 @@ async function sha256(plain) {
 }
 
 export const lichessAuth = {
-    async login() {
-        const state = randomString(32);
-        const codeVerifier = randomString(128);
-        const codeChallenge = await sha256(codeVerifier);
-
-        localStorage.setItem('lichess_state', state);
-        localStorage.setItem('lichess_verifier', codeVerifier);
-
-        const params = new URLSearchParams({
-            response_type: 'code',
-            client_id: CLIENT_ID,
-            redirect_uri: REDIRECT_URI,
-            scope: 'board:play challenge:read challenge:write', // Scopes needed for playing
-            state: state,
-            code_challenge: codeChallenge,
-            code_challenge_method: 'S256'
-        });
-
-        window.location.href = `${LICHESS_API_URL}/oauth?${params.toString()}`;
+    login() {
+        // OAuth flow deprecated in favor of Manual Token Entry for this version
+        console.log("Please enter token manually in the UI");
+        // Optional: Alert user if they somehow call this
+        alert("Por favor, introduce tu token manualmente en la pantalla principal.");
     },
 
     async handleCallback() {
@@ -100,6 +86,24 @@ export const lichessApi = {
         });
         if (!res.ok) return null;
         return res.json();
+    },
+
+    async createOpenChallenge(conf = {}) {
+        const token = lichessAuth.getToken();
+        const res = await fetch(`${LICHESS_API_URL}/api/board/seek`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+                'time': conf.time || 10,
+                'increment': conf.increment || 0,
+                'color': conf.color || 'random',
+                'rated': 'false' // Always casual for simplicity in this demo
+            })
+        });
+        return res;
     },
 
     // Play against AI

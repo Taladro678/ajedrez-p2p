@@ -447,15 +447,41 @@ const Lobby = ({ onConnect, myId, user }) => {
                                 )}
                             </div>
 
-                            <button
-                                className="btn-primary"
-                                onClick={handleCreateGame}
-                                disabled={(gameMode === 'p2p' && !myId) || (gameMode === 'lichess' && isSearchingLichess)}
-                            >
-                                {gameMode === 'computer' ? 'Jugar contra Stockfish' :
-                                    gameMode === 'lichess' ? (lichessToken ? (isSearchingLichess ? 'Buscando...' : 'Buscar en Lichess') : 'Conectar con Lichess') :
-                                        'Crear Partida Pública'}
-                            </button>
+                            {gameMode === 'lichess' && !lichessToken ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <input
+                                        type="text"
+                                        placeholder="Pega tu token de Lichess aquí (lip_...)"
+                                        id="lichess-token-input"
+                                        style={{ padding: '0.8rem' }}
+                                    />
+                                    <button
+                                        className="btn-primary"
+                                        onClick={() => {
+                                            const token = document.getElementById('lichess-token-input').value.trim();
+                                            if (token) {
+                                                localStorage.setItem('lichess_token', token);
+                                                window.location.reload();
+                                            }
+                                        }}
+                                    >
+                                        Guardar Token y Conectar
+                                    </button>
+                                    <small style={{ color: '#aaa', fontSize: '0.75rem', textAlign: 'center' }}>
+                                        Obtén tu token en <a href="https://lichess.org/account/oauth/token/create" target="_blank" style={{ color: '#3b82f6' }}>Lichess &gt; Preferencias &gt; API</a>
+                                    </small>
+                                </div>
+                            ) : (
+                                <button
+                                    className="btn-primary"
+                                    onClick={handleCreateGame}
+                                    disabled={(gameMode === 'p2p' && !myId) || (gameMode === 'lichess' && isSearchingLichess)}
+                                >
+                                    {gameMode === 'computer' ? 'Jugar contra Stockfish' :
+                                        gameMode === 'lichess' ? (isSearchingLichess ? 'Buscando Oponente...' : 'Buscar en Lichess (10+0)') :
+                                            'Crear Partida Pública'}
+                                </button>
+                            )}
                         </>
                     )}
 
