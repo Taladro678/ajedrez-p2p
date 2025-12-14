@@ -45,6 +45,17 @@ Si eres un asistente de IA reanudando el trabajo en este proyecto, por favor lee
 *   **Google Analytics**: Integración para estadísticas de uso
 *   **Google Drive Backup**: Sistema de respaldo automático de partidas
 
+### Mejoras del Lobby (Commit `ea0b58e`)
+*   **Nombres Reales**: Muestra nombre del usuario autenticado (ej: "luvin") en lugar de "Jugador XXX"
+*   **Banderas de Países**: Obtiene país via geolocalización IP y muestra emoji de bandera (ej: 🇩🇴)
+*   **Flujo Mejorado**: Al crear partida, el host permanece en lobby hasta que alguien acepte
+*   **Mensajes de Confirmación**: "✅ Reto publicado!" y "🎮 ¡Alguien aceptó tu reto!"
+*   **Detección de Aceptación**: Detecta automáticamente cuando alguien acepta la partida
+
+### Mejoras de UI (Commit `1b5a34c`)
+*   **Resaltado de Movimientos**: Casillas de origen y destino se resaltan en amarillo/verde más visible
+*   Colores mejorados para mejor visibilidad como en Lichess
+
 ### Correcciones de Build ✅
 *   **Problema**: Build fallaba con "Adjacent JSX elements must be wrapped in an enclosing tag"
 *   **Ubicación**: `Lobby.jsx` líneas 313-376 (menú de usuario)
