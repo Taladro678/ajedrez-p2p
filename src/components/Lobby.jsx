@@ -311,68 +311,70 @@ const Lobby = ({ onConnect, myId, user }) => {
                                 </div>
 
                                 {showUserMenu && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setShowUserMenu(false);
-                                            setShowSettings(true);
-                                        }}
-                                        style={{
-                                            padding: '0.5rem',
-                                            fontSize: '0.85rem',
-                                            textAlign: 'left',
-                                            background: 'transparent',
-                                            border: 'none',
-                                            color: '#e2e8f0',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.5rem',
-                                            width: '100%',
-                                            borderRadius: '4px'
-                                        }}
-                                        onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
-                                        onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
-                                    >
-                                        ⚙️ Configuración
-                                    </button>
-                                    <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '0.2rem 0' }}></div>
-                                    <button
-                                        onClick={async (e) => {
-                                            e.stopPropagation();
-                                            try {
-                                                await signOut(auth);
+                                    <>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
                                                 setShowUserMenu(false);
-                                            } catch (error) {
-                                                console.error('Error signing out:', error);
-                                                alert('Error al cerrar sesión: ' + error.message);
-                                            }
-                                        }}
-                                        style={{
-                                            padding: '0.5rem',
-                                            fontSize: '0.75rem',
-                                            background: 'rgba(239, 68, 68, 0.1)',
-                                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                                            color: '#ef4444',
-                                            borderRadius: '4px',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.5rem',
-                                            width: '100%'
-                                        }}
-                                        onMouseOver={(e) => {
-                                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
-                                            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-                                        }}
-                                        onMouseOut={(e) => {
-                                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
-                                            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                                        }}
-                                    >
-                                        🚪 Cerrar sesión
-                                    </button>
+                                                setShowSettings(true);
+                                            }}
+                                            style={{
+                                                padding: '0.5rem',
+                                                fontSize: '0.85rem',
+                                                textAlign: 'left',
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: '#e2e8f0',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.5rem',
+                                                width: '100%',
+                                                borderRadius: '4px'
+                                            }}
+                                            onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            ⚙️ Configuración
+                                        </button>
+                                        <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '0.2rem 0' }}></div>
+                                        <button
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+                                                try {
+                                                    await signOut(auth);
+                                                    setShowUserMenu(false);
+                                                } catch (error) {
+                                                    console.error('Error signing out:', error);
+                                                    alert('Error al cerrar sesión: ' + error.message);
+                                                }
+                                            }}
+                                            style={{
+                                                padding: '0.5rem',
+                                                fontSize: '0.75rem',
+                                                background: 'rgba(239, 68, 68, 0.1)',
+                                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                color: '#ef4444',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.5rem',
+                                                width: '100%'
+                                            }}
+                                            onMouseOver={(e) => {
+                                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                                            }}
+                                            onMouseOut={(e) => {
+                                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                                            }}
+                                        >
+                                            🚪 Cerrar sesión
+                                        </button>
+                                    </>
                                 )}
                             </div>
                         </div>
