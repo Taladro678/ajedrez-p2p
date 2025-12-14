@@ -733,6 +733,20 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                     }}>
                         <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem' }}>📊 Análisis de Stockfish</h3>
 
+                        {/* Legend */}
+                        <div style={{
+                            fontSize: '0.75rem',
+                            color: '#94a3b8',
+                            marginBottom: '1rem',
+                            padding: '0.5rem',
+                            background: 'rgba(255,255,255,0.03)',
+                            borderRadius: '4px'
+                        }}>
+                            <div style={{ marginBottom: '0.25rem' }}>🟩 Verde = Ventaja blancas</div>
+                            <div style={{ marginBottom: '0.25rem' }}>🟥 Rojo = Ventaja negras</div>
+                            <div>Número = Evaluación en peones</div>
+                        </div>
+
                         {/* Evaluation Graph */}
                         <div style={{
                             background: '#0f172a',
@@ -783,9 +797,12 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
 
                         {/* Move List */}
                         <div style={{ fontSize: '0.85rem' }}>
-                            <div style={{ color: '#94a3b8', marginBottom: '0.5rem' }}>Jugadas analizadas:</div>
+                            <div style={{ color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 'bold' }}>Jugadas analizadas:</div>
                             {analysisResults.map((result, i) => {
                                 if (!result) return null;
+                                const moveNum = Math.floor(i / 2) + 1;
+                                const isWhite = i % 2 === 0;
+                                const moveLabel = isWhite ? `${moveNum}.` : `${moveNum}...`;
                                 return (
                                     <div
                                         key={i}
@@ -797,14 +814,19 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                                             cursor: 'pointer',
                                             display: 'flex',
                                             justifyContent: 'space-between',
-                                            alignItems: 'center'
+                                            alignItems: 'center',
+                                            border: currentAnalysisMove === i ? '1px solid #3b82f6' : '1px solid transparent'
                                         }}
                                         onClick={() => setCurrentAnalysisMove(i)}
                                     >
-                                        <span>Jugada {i + 1}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <span style={{ color: isWhite ? '#fff' : '#94a3b8', fontWeight: 'bold' }}>{moveLabel}</span>
+                                            <span style={{ color: '#cbd5e1' }}>Jugada {i + 1}</span>
+                                        </div>
                                         <span style={{
                                             color: result.score > 0 ? '#22c55e' : '#ef4444',
-                                            fontWeight: 'bold'
+                                            fontWeight: 'bold',
+                                            fontSize: '0.9rem'
                                         }}>
                                             {result.score > 0 ? '+' : ''}{result.score.toFixed(2)}
                                         </span>
