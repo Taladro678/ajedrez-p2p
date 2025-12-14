@@ -57,6 +57,9 @@ const Lobby = ({ onConnect, myId, user }) => {
     const [connectionStatus, setConnectionStatus] = useState('good'); // good, slow, offline
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
+    const [showMenu, setShowMenu] = useState(false);
+    const [showAbout, setShowAbout] = useState(false);
+    const [showDonate, setShowDonate] = useState(false);
     const [publishMessage, setPublishMessage] = useState(null); // Mensaje al publicar reto
 
     useEffect(() => {
@@ -311,25 +314,119 @@ const Lobby = ({ onConnect, myId, user }) => {
         <div className="lobby-container">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h1>Ajedrez P2P</h1>
-                {!user && (
+                {/* Menú desplegable estilo Android */}
+                <div style={{ position: 'relative' }}>
                     <button
-                        onClick={() => setShowSettings(true)}
+                        onClick={() => setShowMenu(!showMenu)}
                         style={{
                             background: 'transparent',
                             border: 'none',
-                            fontSize: '1.2rem',
+                            fontSize: '1.5rem',
                             cursor: 'pointer',
                             padding: '0.5rem',
                             borderRadius: '50%',
-                            transition: 'background 0.2s'
+                            transition: 'background 0.2s',
+                            color: 'white'
                         }}
                         onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
                         onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
-                        title="Configuración"
+                        title="Menú"
                     >
-                        ⚙️
+                        ⋮
                     </button>
-                )}
+
+                    {showMenu && (
+                        <div style={{
+                            position: 'absolute',
+                            top: '100%',
+                            right: 0,
+                            background: '#1e293b',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                            minWidth: '180px',
+                            zIndex: 1000,
+                            marginTop: '0.5rem'
+                        }}>
+                            <button
+                                onClick={() => {
+                                    setShowSettings(true);
+                                    setShowMenu(false);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.8rem 1rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'white',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.8rem',
+                                    fontSize: '0.95rem',
+                                    transition: 'background 0.2s'
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                                onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
+                                <span style={{ fontSize: '1.2rem' }}>⚙️</span>
+                                Configuración
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowDonate(true);
+                                    setShowMenu(false);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.8rem 1rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'white',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.8rem',
+                                    fontSize: '0.95rem',
+                                    transition: 'background 0.2s'
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                                onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
+                                <span style={{ fontSize: '1.2rem' }}>❤️</span>
+                                Donar
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowAbout(true);
+                                    setShowMenu(false);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.8rem 1rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'white',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.8rem',
+                                    fontSize: '0.95rem',
+                                    borderRadius: '0 0 8px 8px',
+                                    transition: 'background 0.2s'
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                                onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
+                                <span style={{ fontSize: '1.2rem' }}>ℹ️</span>
+                                Acerca de
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
             <div className="card">
                 {/* COLUMNA IZQUIERDA: Configuración */}
@@ -795,6 +892,125 @@ const Lobby = ({ onConnect, myId, user }) => {
 
             {/* Settings Modal */}
             {showSettings && <Settings onClose={() => setShowSettings(false)} />}
+
+            {/* Modal Acerca de */}
+            {showAbout && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.8)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 2000
+                }}>
+                    <div style={{
+                        background: '#1e293b',
+                        padding: '2rem',
+                        borderRadius: '12px',
+                        maxWidth: '500px',
+                        width: '90%',
+                        maxHeight: '80vh',
+                        overflow: 'auto'
+                    }}>
+                        <h2 style={{ marginBottom: '1rem' }}>ℹ️ Acerca de Ajedrez P2P</h2>
+                        <p style={{ color: '#94a3b8', lineHeight: '1.6', marginBottom: '1rem' }}>
+                            <strong>Versión:</strong> 1.0.0
+                        </p>
+                        <p style={{ color: '#94a3b8', lineHeight: '1.6', marginBottom: '1rem' }}>
+                            Ajedrez P2P es una plataforma de ajedrez online que utiliza conexiones peer-to-peer
+                            para ofrecer partidas rápidas y sin lag con tus amigos.
+                        </p>
+                        <p style={{ color: '#94a3b8', lineHeight: '1.6', marginBottom: '1rem' }}>
+                            <strong>Características:</strong>
+                        </p>
+                        <ul style={{ color: '#94a3b8', lineHeight: '1.8', marginBottom: '1.5rem', paddingLeft: '1.5rem' }}>
+                            <li>Conexión P2P directa sin servidores centrales</li>
+                            <li>Stockfish integrado para jugar contra IA</li>
+                            <li>Integración con Lichess.org</li>
+                            <li>Video chat y mensajes de voz</li>
+                            <li>Código abierto en GitHub</li>
+                        </ul>
+                        <p style={{ color: '#94a3b8', lineHeight: '1.6', marginBottom: '1.5rem' }}>
+                            <strong>Repositorio:</strong> <a href="https://github.com/Taladro678/ajedrez-p2p" target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>github.com/Taladro678/ajedrez-p2p</a>
+                        </p>
+                        <button
+                            onClick={() => setShowAbout(false)}
+                            style={{
+                                width: '100%',
+                                padding: '0.8rem',
+                                background: '#3b82f6',
+                                border: 'none',
+                                borderRadius: '8px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                fontSize: '1rem'
+                            }}
+                        >
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Donar */}
+            {showDonate && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.8)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 2000
+                }}>
+                    <div style={{
+                        background: '#1e293b',
+                        padding: '2rem',
+                        borderRadius: '12px',
+                        maxWidth: '500px',
+                        width: '90%',
+                        textAlign: 'center'
+                    }}>
+                        <h2 style={{ marginBottom: '1rem' }}>❤️ Apoya el Proyecto</h2>
+                        <p style={{ color: '#94a3b8', lineHeight: '1.6', marginBottom: '1.5rem' }}>
+                            Si te gusta Ajedrez P2P y quieres apoyar su desarrollo,
+                            puedes hacer una donación para ayudar a mantener el proyecto.
+                        </p>
+                        <p style={{ color: '#94a3b8', lineHeight: '1.6', marginBottom: '1.5rem' }}>
+                            <strong>Opciones de donación:</strong>
+                        </p>
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <p style={{ color: '#94a3b8', marginBottom: '0.5rem' }}>PayPal: <strong>tu-email@ejemplo.com</strong></p>
+                            <p style={{ color: '#94a3b8', marginBottom: '0.5rem' }}>Bitcoin: <strong>1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa</strong></p>
+                        </div>
+                        <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                            ¡Gracias por tu apoyo! 🙏
+                        </p>
+                        <button
+                            onClick={() => setShowDonate(false)}
+                            style={{
+                                width: '100%',
+                                padding: '0.8rem',
+                                background: '#3b82f6',
+                                border: 'none',
+                                borderRadius: '8px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                fontSize: '1rem'
+                            }}
+                        >
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
