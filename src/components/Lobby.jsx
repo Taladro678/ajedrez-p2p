@@ -183,19 +183,33 @@ const Lobby = ({ onConnect, myId, user }) => {
             }
 
             setIsSearchingLichess(true);
+            let searchTimeout;
             try {
                 // Parse time control
                 const [min, inc] = settings.timeControl.split('+').map(Number);
+                console.log('Creating Lichess seek:', { time: min, increment: inc, color });
+
                 const response = await lichessApi.createOpenChallenge({
                     time: min,
                     increment: inc,
                     color: color
                 });
 
-                if (!response.ok) throw new Error("Error starting seek");
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Lichess API error:', errorText);
+                    throw new Error("Error starting seek: " + errorText);
+                }
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
+
+                // Timeout after 60 seconds
+                searchTimeout = setTimeout(() => {
+                    reader.cancel();
+                    setIsSearchingLichess(false);
+                    alert('No se encontró oponente. Intenta de nuevo.');
+                }, 60000);
 
                 // Read stream for match
                 while (true) {
@@ -205,22 +219,22 @@ const Lobby = ({ onConnect, myId, user }) => {
                     console.log("Lichess Seek Stream:", chunk);
 
                     try {
-                        // Might contain multiple JSONs or partial
-                        // Assuming newlines
-                        // Ideally use a buffer like in Adapter, but keeping it simple for now
                         const lines = chunk.split('\n');
                         for (const line of lines) {
                             if (!line.trim()) continue;
                             const event = JSON.parse(line);
+                            console.log('Lichess event:', event);
                             if (event.type === 'gameStart') {
+                                clearTimeout(searchTimeout);
                                 setIsSearchingLichess(false);
                                 onConnect('lichess:' + event.game.id, settings);
                                 return;
                             }
                         }
-                    } catch (e) { console.error(e); }
+                    } catch (e) { console.error('Parse error:', e); }
                 }
             } catch (e) {
+                clearTimeout(searchTimeout);
                 console.error("Lichess error:", e);
                 alert("Error connecting to Lichess: " + e.message);
                 setIsSearchingLichess(false);
@@ -763,11 +777,21 @@ const Lobby = ({ onConnect, myId, user }) => {
                                         <div>
                                             <button
                                                 className="btn-primary"
-                                                onClick={handleCreateGame}
-                                                disabled={isSearchingLichess}
-                                                style={{ width: '100%', marginBottom: '0.75rem' }}
+                                                onClick={() => {
+                                                    if (isSearchingLichess) {
+                                                        setIsSearchingLichess(false);
+                                                        window.location.reload(); // Reload to cancel stream
+                                                    } else {
+                                                        handleCreateGame();
+                                                    }
+                                                }}
+                                                style={{
+                                                    width: '100%',
+                                                    marginBottom: '0.75rem',
+                                                    background: isSearchingLichess ? '#ef4444' : undefined
+                                                }}
                                             >
-                                                {isSearchingLichess ? 'Buscando...' : 'Emparejar Partida'}
+                                                {isSearchingLichess ? 'Cancelar Búsqueda' : 'Emparejar Partida'}
                                             </button>
                                             <button
                                                 onClick={() => {
