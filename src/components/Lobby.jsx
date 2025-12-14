@@ -17,15 +17,37 @@ const Lobby = ({ onConnect, myId, user }) => {
     const [lichessToken, setLichessToken] = useState(lichessAuth.getToken());
     const [isSearchingLichess, setIsSearchingLichess] = useState(false);
 
-    // Initialize playerName from localStorage or default
+    // Initialize playerName - prioritize user.displayName
     const [playerName, setPlayerName] = useState(() => {
+        if (user?.displayName) return user.displayName;
         return localStorage.getItem('chess_playerName') || 'Jugador ' + Math.floor(Math.random() * 1000);
     });
+
+    // Update playerName when user changes
+    useEffect(() => {
+        if (user?.displayName) {
+            setPlayerName(user.displayName);
+        }
+    }, [user]);
 
     // Save playerName to localStorage whenever it changes
     useEffect(() => {
         localStorage.setItem('chess_playerName', playerName);
     }, [playerName]);
+
+    // Get user's country based on IP
+    const [userCountry, setUserCountry] = useState(null);
+    useEffect(() => {
+        fetch('https://ipapi.co/json/')
+            .then(res => res.json())
+            .then(data => {
+                setUserCountry(data.country_code); // Ej: "US", "MX", "DO"
+            })
+            .catch(err => {
+                console.error('Error getting country:', err);
+                setUserCountry(null);
+            });
+    }, []);
 
     const [games, setGames] = useState([]);
     const [isHosting, setIsHosting] = useState(false);
@@ -35,6 +57,7 @@ const Lobby = ({ onConnect, myId, user }) => {
     const [connectionStatus, setConnectionStatus] = useState('good'); // good, slow, offline
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
+    const [publishMessage, setPublishMessage] = useState(null); // Mensaje al publicar reto
 
     useEffect(() => {
         // Listen for available games
@@ -81,6 +104,24 @@ const Lobby = ({ onConnect, myId, user }) => {
 
         return () => unsubscribe();
     }, [sortBy]);
+
+    // Detectar cuando alguien acepta la partida del host
+    useEffect(() => {
+        if (!isHosting || !hostedGameId) return;
+
+        const unsubscribe = onSnapshot(doc(db, "games", hostedGameId), (docSnap) => {
+            if (!docSnap.exists()) {
+                // La partida fue eliminada (alguien la aceptó)
+                // Esperar conexión entrante via PeerJS
+                setIsHosting(false);
+                setHostedGameId(null);
+                setPublishMessage('🎮 ¡Alguien aceptó tu reto! Iniciando partida...');
+                setTimeout(() => setPublishMessage(null), 3000);
+            }
+        });
+
+        return () => unsubscribe();
+    }, [isHosting, hostedGameId]);
 
     // Monitor connection status
     useEffect(() => {
@@ -187,15 +228,22 @@ const Lobby = ({ onConnect, myId, user }) => {
                 const docRef = await addDoc(collection(db, "games"), {
                     hostId: myId,
                     name: playerName,
+                    hostName: playerName,  // Nombre real del host
+                    country: userCountry,   // Código de país
                     elo: '1200?',
                     timeControl: settings.timeControl,
                     color: settings.color,
-                    status: 'waiting', // Explicit status
+                    status: 'waiting',
                     createdAt: Date.now()
                 });
 
-                // Pass docRef.id to App so Game.jsx can handle deletion
-                onConnect(null, settings, docRef.id);
+                // Mantener en lobby y mostrar mensaje
+                setIsHosting(true);
+                setHostedGameId(docRef.id);
+                setPublishMessage(`✅ Reto publicado! Esperando oponente...`);
+                setTimeout(() => setPublishMessage(null), 5000);
+
+                // NO llamar onConnect aquí - esperar a que alguien acepte
             } catch (e) {
                 console.error("Error adding document: ", e);
                 alert("Error al crear partida en la nube: " + e.message);
@@ -203,14 +251,38 @@ const Lobby = ({ onConnect, myId, user }) => {
         }
     };
 
-    const handleJoinGame = async (gameId, hostPeerId) => {
+    const handleJoinGame = async (gameId, hostPeerId, gameSettings) => {
         // Delete the game immediately when accepted
         try {
             await deleteDoc(doc(db, "games", gameId));
         } catch (e) {
             console.error("Error deleting game:", e);
         }
-        onConnect(hostPeerId, null);
+
+        // Reconstruct settings from game data
+        const settings = {
+            gameMode: 'p2p',
+            color: gameSettings.color === 'white' ? 'black' : 'white', // Opposite color
+            timeControl: gameSettings.timeControl,
+            elo: 1200
+        };
+
+        onConnect(hostPeerId, settings);
+    };
+
+    // Helper function to convert country code to flag emoji
+    const getCountryFlag = (countryCode) => {
+        if (!countryCode) return '🌍'; // Fallback: globe
+
+        try {
+            const codePoints = countryCode
+                .toUpperCase()
+                .split('')
+                .map(char => 127397 + char.charCodeAt());
+            return String.fromCodePoint(...codePoints);
+        } catch (e) {
+            return '🌍';
+        }
     };
 
     const cancelHosting = async () => {
@@ -553,6 +625,23 @@ const Lobby = ({ onConnect, myId, user }) => {
                             </button>
                         </div>
                     )}
+
+                    {/* Mensaje de confirmación al publicar reto */}
+                    {publishMessage && (
+                        <div style={{
+                            background: 'rgba(34, 197, 94, 0.2)',
+                            border: '1px solid rgba(34, 197, 94, 0.5)',
+                            borderRadius: '8px',
+                            padding: '1rem',
+                            marginBottom: '1rem',
+                            textAlign: 'center',
+                            color: '#22c55e',
+                            fontWeight: '500',
+                            animation: 'slideIn 0.3s ease-out'
+                        }}>
+                            {publishMessage}
+                        </div>
+                    )}
                 </div>
 
                 {/* COLUMNA DERECHA: Lista de Partidas */}
@@ -603,14 +692,17 @@ const Lobby = ({ onConnect, myId, user }) => {
                                             alignItems: 'center'
                                         }}>
                                             <div>
-                                                <div style={{ fontWeight: 'bold', color: 'white', fontSize: '0.95rem' }}>{g.name}</div>
+                                                {/* Bandera + Nombre */}
+                                                <div style={{ fontWeight: 'bold', color: 'white', fontSize: '0.95rem' }}>
+                                                    {getCountryFlag(g.country)} {g.hostName || g.name}
+                                                </div>
                                                 <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
                                                     {g.timeControl} • {g.color === 'white' ? 'Juega Blancas' : 'Juega Negras'}
                                                 </div>
                                             </div>
                                             <button
                                                 className="btn-secondary"
-                                                onClick={() => handleJoinGame(g.id, g.hostId)}
+                                                onClick={() => handleJoinGame(g.id, g.hostId, g)}
                                                 style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
                                             >
                                                 Jugar
