@@ -431,7 +431,7 @@ const Lobby = ({ onConnect, myId, user }) => {
                     )}
                 </div>
             </div>
-            <div className="card">
+            <div className="card" style={{ maxHeight: '80vh', overflowY: 'auto' }}>
                 {/* COLUMNA IZQUIERDA: Configuración */}
                 <div className="lobby-left-column">
                     {/* User Info */}
