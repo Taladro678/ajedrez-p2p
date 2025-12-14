@@ -631,11 +631,17 @@ const Lobby = ({ onConnect, myId, user }) => {
                             <div className="form-group">
                                 <label>Tiempo</label>
                                 <select value={timeControl} onChange={(e) => setTimeControl(e.target.value)}>
-                                    <option value="10+0">Rápida (10 min)</option>
-                                    <option value="5+3">Blitz (5+3)</option>
+                                    <option value="1+0">Bullet (1+0)</option>
+                                    <option value="2+1">Bullet (2+1)</option>
+                                    <option value="3+0">Blitz (3+0)</option>
                                     <option value="3+2">Blitz (3+2)</option>
-                                    <option value="1+0">Bullet (1 min)</option>
-                                    <option value="custom">⚙️ Personalizado</option>
+                                    <option value="5+0">Blitz (5+0)</option>
+                                    <option value="5+3">Blitz (5+3)</option>
+                                    <option value="10+0">Rápida (10+0)</option>
+                                    <option value="10+5">Rápida (10+5)</option>
+                                    <option value="15+10">Rápida (15+10)</option>
+                                    <option value="30+0">Clásica (30+0)</option>
+                                    <option value="30+20">Clásica (30+20)</option>
                                 </select>
 
                                 {timeControl === 'custom' && (
