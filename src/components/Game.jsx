@@ -585,8 +585,30 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
         <div className="game-container">
             {/* HEADER - Minimal */}
             <header className="game-header" style={{ justifyContent: 'space-between', padding: '0.5rem', minHeight: 'auto' }}>
-                <div style={{ fontWeight: 'bold', color: '#aaa', fontSize: '0.9rem' }}>
-                    {winner ? `🏆 ${winner}` : (game.inCheck() ? '⚠️ JAQUE' : 'Partida en Curso')}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ fontWeight: 'bold', color: '#aaa', fontSize: '0.9rem' }}>
+                        {winner ? `🏆 ${winner}` : (game.inCheck() ? '⚠️ JAQUE' : 'Partida en Curso')}
+                    </div>
+
+                    {/* Analysis Indicator */}
+                    {engine.current && !game.isGameOver() && !winner && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '3px 6px',
+                            background: 'rgba(34, 197, 94, 0.15)',
+                            borderRadius: '4px',
+                            fontSize: '0.7rem',
+                            color: '#22c55e'
+                        }}>
+                            <span style={{
+                                animation: 'pulse 1.5s ease-in-out infinite',
+                                display: 'inline-block'
+                            }}>🧠</span>
+                            <span>Analizando</span>
+                        </div>
+                    )}
                 </div>
                 <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
                     {/* Video Chat Toggle */}
