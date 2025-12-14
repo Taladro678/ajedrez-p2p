@@ -23,13 +23,60 @@ function App() {
   const [hostedGameId, setHostedGameId] = useState(null)
   const peerRef = useRef(null)
 
+  // Declare callback functions BEFORE useEffects that use them
+  const setupConnection = useCallback((connection) => {
+    connection.on('open', () => {
+      console.log('Connected to:', connection.peer);
+    });
+    connection.on('close', () => {
+      console.log('Connection closed');
+      setIsConnected(false);
+      setConn(null);
+    });
+    connection.on('error', (err) => {
+      console.error('Connection error:', err);
+    });
+  }, []);
+
+  const handleConnect = useCallback((opponentId, settings, gameId = null) => {
+    setGameSettings(settings);
+    setHostedGameId(gameId);
+    sessionStorage.setItem('gameSettings', JSON.stringify(settings));
+    if (opponentId) sessionStorage.setItem('opponentId', opponentId);
+    else sessionStorage.removeItem('opponentId');
+
+    if (opponentId === 'COMPUTER') {
+      setIsConnected(true);
+      return;
+    }
+
+    if (opponentId && opponentId.startsWith('lichess:')) {
+      const lichessGameId = opponentId.split(':')[1];
+      const connection = new LichessConnection(lichessGameId, settings.color);
+      setConn(connection);
+      setupConnection(connection);
+      setIsConnected(true);
+      return;
+    }
+
+    if (!opponentId) {
+      setIsConnected(true);
+      return;
+    }
+
+    if (!peerRef.current) return;
+    const connection = peerRef.current.connect(opponentId);
+    setConn(connection);
+    setupConnection(connection);
+    setIsConnected(true);
+  }, [setupConnection]);
+
   // Listen for auth state changes globally
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       console.log('Auth state changed:', currentUser ? currentUser.displayName : 'null');
       setUser(currentUser);
 
-      // Inicializar sonidos en la primera autenticación
       if (currentUser) {
         initSounds();
       }
@@ -92,56 +139,7 @@ function App() {
     }
   }, [myId, isConnected, handleConnect]);
 
-  const setupConnection = useCallback((connection) => {
-    connection.on('open', () => {
-      console.log('Connected to:', connection.peer);
-    });
-    connection.on('close', () => {
-      console.log('Connection closed');
-      setIsConnected(false);
-      setConn(null);
-      // alert('Conexión cerrada por el otro extremo'); // Comentado para evitar alertas molestas en reconexiones rápidas
-    });
-    // Error handling
-    connection.on('error', (err) => {
-      console.error('Connection error:', err);
-      // alert('Error de conexión: ' + err);
-    });
-  }, []);
 
-  const handleConnect = useCallback((opponentId, settings, gameId = null) => {
-    setGameSettings(settings);
-    setHostedGameId(gameId); // Store the Firebase ID of the hosted game
-    sessionStorage.setItem('gameSettings', JSON.stringify(settings));
-    if (opponentId) sessionStorage.setItem('opponentId', opponentId);
-    else sessionStorage.removeItem('opponentId'); // Host mode
-
-    if (opponentId === 'COMPUTER') {
-      setIsConnected(true);
-      return;
-    }
-
-    if (opponentId && opponentId.startsWith('lichess:')) {
-      const lichessGameId = opponentId.split(':')[1];
-      const connection = new LichessConnection(lichessGameId, settings.color);
-      setConn(connection);
-      setupConnection(connection);
-      setIsConnected(true);
-      return;
-    }
-
-    if (!opponentId) {
-      // Host mode: Wait for connection
-      setIsConnected(true);
-      return;
-    }
-
-    if (!peerRef.current) return;
-    const connection = peerRef.current.connect(opponentId);
-    setConn(connection);
-    setupConnection(connection);
-    setIsConnected(true);
-  }, [setupConnection]);
 
   const handleDisconnect = () => {
     if (conn) {
