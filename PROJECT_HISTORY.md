@@ -1,6 +1,6 @@
 # Historial y Estado del Proyecto
 
-**Última Actualización:** 14 de diciembre de 2024
+**Última Actualización:** 14 de diciembre de 2024 (11:40 AM)
 **Proyecto:** Ajedrez P2P + Integración con Lichess
 **Repositorio:** [https://github.com/Taladro678/ajedrez-p2p](https://github.com/Taladro678/ajedrez-p2p)
 **URL Desplegada:** [https://ajedrez-p2p.vercel.app](https://ajedrez-p2p.vercel.app)
@@ -36,6 +36,26 @@ Si eres un asistente de IA reanudando el trabajo en este proyecto, por favor lee
 - [x] Corregir Problemas de Dominio de Autenticación
 - [x] Implementar Fallback de Token Manual para Lichess
 
+## Cambios Recientes (14 de diciembre de 2024)
+
+### Nuevas Funcionalidades
+*   **Landing Page**: Nueva página de inicio antes de la autenticación
+*   **Video Chat**: Integración de videollamadas durante las partidas P2P
+*   **Mensajes de Voz**: Capacidad de enviar mensajes de voz en el chat
+*   **Google Analytics**: Integración para estadísticas de uso
+*   **Google Drive Backup**: Sistema de respaldo automático de partidas
+
+### Correcciones de Build
+*   **Problema**: Build de Vercel fallaba con error de sintaxis
+*   **Causa**: Configuración incorrecta en `vercel.json`
+*   **Solución**: Eliminado `vercel.json` para detección automática de Vite
+*   **Resultado**: ✅ Build exitoso, todas las funcionalidades preservadas
+
+### Correcciones de Código
+*   Corregidos errores de React Hooks en `App.jsx`
+*   Agregado script `build` en `package.json`
+*   Restaurado import de `Auth` necesario para `LandingPage`
+
 ## Problemas Conocidos / Notas
 *   **OAuth de Lichess**: El flujo estándar de OAuth App está deshabilitado en favor de Tokens Personales debido a restricciones de registro. No intentar revertir al flujo basado en "Client ID" a menos que la política de Lichess cambie.
 *   **Archivos**:
@@ -43,7 +63,7 @@ Si eres un asistente de IA reanudando el trabajo en este proyecto, por favor lee
     *   `src/services/lichess.js`: Wrapper de la API.
 
 ## Estado del Asistente AI
-**Fecha de Actualización:** 14 de diciembre de 2024, 10:42 AM
+**Fecha de Actualización:** 14 de diciembre de 2024, 11:40 AM
 
 ✅ **Asistente al tanto del proyecto**
 - He revisado completamente el historial del proyecto
