@@ -65,6 +65,12 @@ const Lobby = ({ onConnect, myId, user }) => {
     const [showDonate, setShowDonate] = useState(false);
     const [publishMessage, setPublishMessage] = useState(null); // Mensaje al publicar reto
 
+    // Global Chat State
+    const [chatMessages, setChatMessages] = useState([]);
+    const [chatInput, setChatInput] = useState('');
+    const [onlineUsers, setOnlineUsers] = useState(0);
+    const [showChat, setShowChat] = useState(true);
+
     useEffect(() => {
         // Listen for available games
         const q = query(collection(db, "games"));
@@ -230,6 +236,78 @@ const Lobby = ({ onConnect, myId, user }) => {
         };
     }, [showStatusTooltip]);
 
+    // User Presence Tracking
+    useEffect(() => {
+        if (!myId || !playerName) return;
+
+        const presenceRef = doc(db, 'presence', myId);
+
+        // Set user as online
+        const setPresence = async () => {
+            try {
+                await setDoc(presenceRef, {
+                    userId: myId,
+                    name: playerName,
+                    country: userCountry,
+                    timestamp: Date.now(),
+                    status: 'online'
+                });
+            } catch (error) {
+                console.error('Error setting presence:', error);
+            }
+        };
+
+        setPresence();
+
+        // Update presence every 30 seconds
+        const interval = setInterval(() => {
+            updateDoc(presenceRef, { timestamp: Date.now() }).catch(err =>
+                console.error('Error updating presence:', err)
+            );
+        }, 30000);
+
+        // Cleanup on unmount
+        return () => {
+            clearInterval(interval);
+            deleteDoc(presenceRef).catch(err => console.error('Error removing presence:', err));
+        };
+    }, [myId, playerName, userCountry]);
+
+    // Listen to online users count
+    useEffect(() => {
+        const q = query(collection(db, 'presence'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const now = Date.now();
+            const activeUsers = snapshot.docs.filter(doc => {
+                const data = doc.data();
+                // Consider active if updated in last 60 seconds
+                return (now - data.timestamp) < 60000;
+            });
+            setOnlineUsers(activeUsers.length);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    // Listen to global chat messages
+    useEffect(() => {
+        const q = query(
+            collection(db, 'globalChat'),
+            orderBy('timestamp', 'desc'),
+            limit(50)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const messages = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            })).reverse(); // Reverse to show oldest first
+            setChatMessages(messages);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
     const handleCreateGame = async () => {
         const settings = {
             gameMode,
@@ -367,6 +445,28 @@ const Lobby = ({ onConnect, myId, user }) => {
             return String.fromCodePoint(...codePoints);
         } catch (e) {
             return '🌍';
+        }
+    };
+
+    // Send chat message
+    const handleSendMessage = async () => {
+        if (!chatInput.trim() || !myId || !playerName) return;
+
+        // Limit message length
+        const message = chatInput.trim().substring(0, 200);
+
+        try {
+            await addDoc(collection(db, 'globalChat'), {
+                userId: myId,
+                name: playerName,
+                country: userCountry,
+                message: message,
+                timestamp: Date.now()
+            });
+
+            setChatInput(''); // Clear input after sending
+        } catch (error) {
+            console.error('Error sending message:', error);
         }
     };
 
@@ -1102,6 +1202,176 @@ const Lobby = ({ onConnect, myId, user }) => {
                 )}
             </div>
 
+
+            {/* GLOBAL CHAT */}
+            {showChat && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '20px',
+                    right: '20px',
+                    width: '320px',
+                    maxHeight: '450px',
+                    background: 'var(--surface-color)',
+                    borderRadius: '12px',
+                    boxShadow: 'var(--elevation-4)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    zIndex: 100,
+                    border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                    <div style={{
+                        padding: '0.75rem 1rem',
+                        background: 'rgba(0, 0, 0, 0.2)',
+                        borderTopLeftRadius: '12px',
+                        borderTopRightRadius: '12px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ fontSize: '1.1rem' }}>💬</span>
+                            <span style={{ fontWeight: '600', fontSize: '0.9rem' }}>Chat Global</span>
+                            <span style={{
+                                fontSize: '0.7rem',
+                                background: 'rgba(59, 130, 246, 0.2)',
+                                color: '#60a5fa',
+                                padding: '0.15rem 0.4rem',
+                                borderRadius: '10px',
+                                fontWeight: '600'
+                            }}>
+                                {onlineUsers} online
+                            </span>
+                        </div>
+                        <button onClick={() => setShowChat(false)} style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#94a3b8',
+                            cursor: 'pointer',
+                            fontSize: '1.2rem',
+                            padding: '0',
+                            lineHeight: 1
+                        }}>×</button>
+                    </div>
+                    <div style={{
+                        flex: 1,
+                        overflowY: 'auto',
+                        padding: '0.75rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.5rem',
+                        minHeight: '250px',
+                        maxHeight: '320px'
+                    }}>
+                        {chatMessages.length === 0 ? (
+                            <div style={{ textAlign: 'center', color: '#64748b', fontSize: '0.8rem', padding: '2rem 1rem' }}>
+                                No hay mensajes aún. ¡Sé el primero en escribir!
+                            </div>
+                        ) : (
+                            chatMessages.map((msg) => (
+                                <div key={msg.id} style={{
+                                    display: 'flex',
+                                    gap: '0.5rem',
+                                    fontSize: '0.8rem',
+                                    padding: '0.4rem',
+                                    borderRadius: '6px',
+                                    background: msg.userId === myId ? 'rgba(59, 130, 246, 0.1)' : 'transparent'
+                                }}>
+                                    <span style={{ fontSize: '1rem' }}>{getCountryFlag(msg.country)}</span>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{
+                                            fontWeight: '600',
+                                            color: msg.userId === myId ? '#60a5fa' : '#94a3b8',
+                                            marginBottom: '0.15rem'
+                                        }}>{msg.name}</div>
+                                        <div style={{ color: '#e2e8f0', lineHeight: 1.4, wordBreak: 'break-word' }}>
+                                            {msg.message}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                    <div style={{
+                        padding: '0.75rem',
+                        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                        display: 'flex',
+                        gap: '0.5rem'
+                    }}>
+                        <input
+                            type="text"
+                            value={chatInput}
+                            onChange={(e) => setChatInput(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                            placeholder="Escribe un mensaje..."
+                            maxLength={200}
+                            style={{
+                                flex: 1,
+                                padding: '0.5rem',
+                                background: '#0f172a',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                borderRadius: '6px',
+                                color: 'white',
+                                fontSize: '0.85rem'
+                            }}
+                        />
+                        <button
+                            onClick={handleSendMessage}
+                            disabled={!chatInput.trim()}
+                            style={{
+                                padding: '0.5rem 1rem',
+                                background: chatInput.trim() ? 'var(--primary-color)' : '#334155',
+                                border: 'none',
+                                borderRadius: '6px',
+                                color: 'white',
+                                cursor: chatInput.trim() ? 'pointer' : 'not-allowed',
+                                fontSize: '0.85rem',
+                                fontWeight: '600'
+                            }}
+                        >Enviar</button>
+                    </div>
+                </div>
+            )}
+
+            {!showChat && (
+                <button onClick={() => setShowChat(true)} style={{
+                    position: 'fixed',
+                    bottom: '20px',
+                    right: '20px',
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
+                    background: 'var(--primary-color)',
+                    border: 'none',
+                    color: 'white',
+                    fontSize: '1.5rem',
+                    cursor: 'pointer',
+                    boxShadow: 'var(--elevation-4)',
+                    zIndex: 100,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}>
+                    💬
+                    {onlineUsers > 0 && (
+                        <span style={{
+                            position: 'absolute',
+                            top: '-5px',
+                            right: '-5px',
+                            background: '#ef4444',
+                            color: 'white',
+                            fontSize: '0.7rem',
+                            width: '22px',
+                            height: '22px',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: '600'
+                        }}>{onlineUsers}</span>
+                    )}
+                </button>
+            )}
 
             {/* Settings Modal */}
             {showSettings && <Settings onClose={() => setShowSettings(false)} />}
