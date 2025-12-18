@@ -7,6 +7,8 @@ import { lichessAuth, lichessApi } from '../services/lichess';
 import LichessChallenges from './LichessChallenges';
 import LichessSpectate from './LichessSpectate';
 import { translateText, getUserLanguage } from '../utils/translator';
+import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
+import VoicePlayer from './VoicePlayer';
 
 const Lobby = ({ onConnect, myId, user }) => {
     const [gameMode, setGameMode] = useState('p2p');
@@ -84,6 +86,17 @@ const Lobby = ({ onConnect, myId, user }) => {
     const [userLang, setUserLang] = useState('en');
     const [translatedMessages, setTranslatedMessages] = useState({}); // { messageId: translatedText }
     const [translatingMessages, setTranslatingMessages] = useState(new Set()); // Set of message IDs being translated
+
+    // Voice Recorder State
+    const {
+        isRecording,
+        recordingTime,
+        audioBlob,
+        startRecording,
+        stopRecording,
+        cancelRecording,
+        resetRecording
+    } = useVoiceRecorder();
 
     // Initialize user language
     useEffect(() => {
