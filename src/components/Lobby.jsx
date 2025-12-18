@@ -494,10 +494,10 @@ const Lobby = ({ onConnect, myId, user }) => {
 
     return (
         <div className="lobby-container">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{ position: 'relative', marginBottom: '1rem' }}>
                 <h1>Ajedrez P2P</h1>
-                {/* Menú desplegable estilo Android */}
-                <div style={{ position: 'relative' }}>
+                {/* Menú desplegable estilo Android - esquina superior derecha */}
+                <div style={{ position: 'absolute', top: 0, right: 0 }}>
                     <button
                         onClick={() => setShowMenu(!showMenu)}
                         style={{
