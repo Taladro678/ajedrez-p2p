@@ -1066,13 +1066,19 @@ const Lobby = ({ onConnect, myId, user }) => {
                 {/* Tooltip */}
                 {showStatusTooltip && (
                     <div style={{
-                        background: 'rgba(0, 0, 0, 0.9)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        position: 'absolute',
+                        bottom: '100%',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        marginBottom: '0.5rem',
+                        background: 'rgba(0, 0, 0, 0.95)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
                         borderRadius: '8px',
                         padding: '0.75rem',
                         fontSize: '0.75rem',
                         maxWidth: '280px',
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
+                        zIndex: 1000,
                         animation: 'slideUp 0.2s ease-out'
                     }}>
                         <div style={{ fontWeight: '600', marginBottom: '0.5rem', color: 'white' }}>
