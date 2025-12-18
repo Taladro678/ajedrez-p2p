@@ -44,11 +44,21 @@ const Lobby = ({ onConnect, myId, user }) => {
         fetch('https://ipapi.co/json/')
             .then(res => res.json())
             .then(data => {
-                setUserCountry(data.country_code); // Ej: "US", "MX", "DO"
+                console.log('Country data:', data);
+                if (data.country_code) {
+                    setUserCountry(data.country_code);
+                    console.log('Country set to:', data.country_code);
+                } else {
+                    const browserLang = navigator.language || navigator.userLanguage;
+                    const countryFromLang = browserLang.split('-')[1];
+                    setUserCountry(countryFromLang || 'XX');
+                }
             })
             .catch(err => {
                 console.error('Error getting country:', err);
-                setUserCountry(null);
+                const browserLang = navigator.language || navigator.userLanguage;
+                const countryFromLang = browserLang.split('-')[1];
+                setUserCountry(countryFromLang || 'XX');
             });
     }, []);
 
@@ -435,15 +445,19 @@ const Lobby = ({ onConnect, myId, user }) => {
 
     // Helper function to convert country code to flag emoji
     const getCountryFlag = (countryCode) => {
-        if (!countryCode) return '🌍'; // Fallback: globe
+        console.log('Flag for:', countryCode);
+        if (!countryCode || countryCode === 'XX') return '🌍';
 
         try {
             const codePoints = countryCode
                 .toUpperCase()
                 .split('')
                 .map(char => 127397 + char.charCodeAt());
-            return String.fromCodePoint(...codePoints);
+            const flag = String.fromCodePoint(...codePoints);
+            console.log('Generated:', flag);
+            return flag;
         } catch (e) {
+            console.error('Flag error:', e);
             return '🌍';
         }
     };
@@ -455,16 +469,18 @@ const Lobby = ({ onConnect, myId, user }) => {
         // Limit message length
         const message = chatInput.trim().substring(0, 200);
 
+        console.log('Sending with country:', userCountry);
+
         try {
             await addDoc(collection(db, 'globalChat'), {
                 userId: myId,
                 name: playerName,
-                country: userCountry,
+                country: userCountry || 'XX',
                 message: message,
                 timestamp: Date.now()
             });
 
-            setChatInput(''); // Clear input after sending
+            setChatInput('');
         } catch (error) {
             console.error('Error sending message:', error);
         }
