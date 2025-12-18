@@ -65,6 +65,9 @@ const LandingPage = ({ onGuestPlay }) => {
                     background: var(--bg-color);
                     color: var(--on-background);
                     font-family: 'Inter', sans-serif;
+                    overflow-x: hidden;
+                    overflow-y: auto;
+                    width: 100%;
                 }
 
                 .landing-hero {
@@ -215,8 +218,58 @@ const LandingPage = ({ onGuestPlay }) => {
                 }
 
                 @media (max-width: 768px) {
-                    .landing-hero h1 { font-size: 2rem; }
-                    .features-section { padding: 2rem 1rem; }
+                    .landing-hero {
+                        padding: 1rem;
+                    }
+
+                    .hero-icon {
+                        font-size: 3rem;
+                    }
+
+                    .landing-hero h1 {
+                        font-size: 1.5rem;
+                    }
+
+                    .hero-tagline {
+                        font-size: 0.95rem;
+                        margin-bottom: 1.5rem;
+                    }
+
+                    .hero-actions {
+                        max-width: 100%;
+                        padding: 0 0.5rem;
+                    }
+
+                    .features-section {
+                        padding: 1.5rem 0.75rem;
+                        gap: 1.5rem;
+                    }
+
+                    .feature-card {
+                        padding: 1.25rem;
+                    }
+                }
+
+                @media (max-width: 480px) {
+                    .landing-hero {
+                        padding: 0.75rem;
+                    }
+
+                    .hero-icon {
+                        font-size: 2.5rem;
+                    }
+
+                    .landing-hero h1 {
+                        font-size: 1.25rem;
+                    }
+
+                    .hero-tagline {
+                        font-size: 0.85rem;
+                    }
+
+                    .features-section {
+                        padding: 1rem 0.5rem;
+                    }
                 }
             `}</style>
         </div>
