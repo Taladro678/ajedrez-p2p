@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../firebase';
-import { collection, addDoc, onSnapshot, deleteDoc, doc, query, getDocs } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, deleteDoc, doc, query, getDocs, setDoc, updateDoc, orderBy, limit } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import Settings from './Settings';
 import { lichessAuth, lichessApi } from '../services/lichess';
