@@ -1334,10 +1334,42 @@ const Lobby = ({ onConnect, myId, user }) => {
                                         <div style={{
                                             fontWeight: '600',
                                             color: msg.userId === myId ? '#60a5fa' : '#94a3b8',
-                                            marginBottom: '0.15rem'
-                                        }}>{msg.name}</div>
+                                            marginBottom: '0.15rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem'
+                                        }}>
+                                            {msg.name}
+                                            <button
+                                                onClick={() => handleTranslateMessage(msg.id, msg.message)}
+                                                disabled={translatingMessages.has(msg.id)}
+                                                style={{
+                                                    background: 'transparent',
+                                                    border: 'none',
+                                                    cursor: translatingMessages.has(msg.id) ? 'wait' : 'pointer',
+                                                    fontSize: '0.9rem',
+                                                    padding: '0.2rem',
+                                                    opacity: translatingMessages.has(msg.id) ? 0.5 : 0.7,
+                                                    transition: 'opacity 0.2s'
+                                                }}
+                                                title={translatedMessages[msg.id] ? 'Mostrar original' : 'Traducir'}
+                                                onMouseOver={(e) => e.currentTarget.style.opacity = '1'}
+                                                onMouseOut={(e) => e.currentTarget.style.opacity = translatingMessages.has(msg.id) ? '0.5' : '0.7'}
+                                            >
+                                                {translatingMessages.has(msg.id) ? '⏳' : '🌐'}
+                                            </button>
+                                        </div>
                                         <div style={{ color: '#e2e8f0', lineHeight: 1.4, wordBreak: 'break-word' }}>
-                                            {msg.message}
+                                            {translatedMessages[msg.id] ? (
+                                                <>
+                                                    <div style={{ fontStyle: 'italic', opacity: 0.7, fontSize: '0.75rem', marginBottom: '0.2rem' }}>
+                                                        Original: {msg.message}
+                                                    </div>
+                                                    <div>{translatedMessages[msg.id]}</div>
+                                                </>
+                                            ) : (
+                                                msg.message
+                                            )}
                                         </div>
                                     </div>
                                 </div>
