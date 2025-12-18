@@ -559,10 +559,19 @@ const Lobby = ({ onConnect, myId, user }) => {
 
     return (
         <div className="lobby-container">
-            <div style={{ position: 'relative', marginBottom: '1rem' }}>
-                <h1>Ajedrez P2P</h1>
-                {/* Menú desplegable estilo Android - esquina superior derecha */}
-                <div style={{ position: 'absolute', top: 0, right: 0 }}>
+            {/* Navbar estilo Android */}
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '1rem 0',
+                marginBottom: '1rem',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+            }}>
+                <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Ajedrez P2P</h1>
+
+                {/* Menú de tres puntos - esquina derecha */}
+                <div style={{ position: 'relative' }}>
                     <button
                         onClick={() => setShowMenu(!showMenu)}
                         style={{
@@ -573,7 +582,10 @@ const Lobby = ({ onConnect, myId, user }) => {
                             padding: '0.5rem',
                             borderRadius: '50%',
                             transition: 'background 0.2s',
-                            color: 'white'
+                            color: 'white',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
                         }}
                         onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
                         onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
