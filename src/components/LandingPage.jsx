@@ -10,7 +10,7 @@ const LandingPage = ({ onGuestPlay }) => {
                     <div className="hero-icon">♞</div>
                     <h1>Ajedrez P2P</h1>
                     <p className="hero-tagline">
-                        La forma más rápida de jugar ajedrez online con tus amigos.
+                        La forma más rápida de jugar ajedrez online.
                         <br />Sin registros complicados. Sin lag. Puro Ajedrez.
                     </p>
 

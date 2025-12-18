@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../firebase';
-import { collection, addDoc, onSnapshot, deleteDoc, doc, query } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, deleteDoc, doc, query, getDocs } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import Settings from './Settings';
 import { lichessAuth, lichessApi } from '../services/lichess';
@@ -129,41 +129,106 @@ const Lobby = ({ onConnect, myId, user }) => {
         return () => unsubscribe();
     }, [isHosting, hostedGameId]);
 
-    // Monitor connection status
+    // Monitor connection status with real quality detection
     useEffect(() => {
-        const updateConnectionStatus = () => {
+        const updateConnectionStatus = async () => {
+            // First check if browser is online
             if (!navigator.onLine) {
                 setConnectionStatus('offline');
                 return;
             }
 
-            // Check if Firebase is responding slowly
-            const startTime = Date.now();
-            const timeout = setTimeout(() => {
-                // If games haven't loaded in 3 seconds, mark as slow
-                if (games.length === 0 && gameMode === 'p2p') {
-                    setConnectionStatus('slow');
-                }
-            }, 3000);
+            // Check Network Information API for connection type
+            const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
 
-            // If we have games or not in P2P mode, connection is good
-            if (games.length > 0 || gameMode !== 'p2p') {
-                clearTimeout(timeout);
-                setConnectionStatus('good');
+            if (connection) {
+                // Check effective connection type
+                const effectiveType = connection.effectiveType;
+
+                // Slow connection types: slow-2g, 2g, 3g
+                if (effectiveType === 'slow-2g' || effectiveType === '2g') {
+                    setConnectionStatus('slow');
+                    return;
+                }
+
+                // Check if connection is metered or has data saver enabled
+                if (connection.saveData) {
+                    setConnectionStatus('slow');
+                    return;
+                }
+            }
+
+            // Measure actual latency by checking Firebase response time
+            try {
+                const startTime = performance.now();
+
+                // Quick Firebase read to measure latency (using modular API)
+                const q = query(collection(db, 'games'));
+                await getDocs(q);
+
+                const latency = performance.now() - startTime;
+
+                // Set status based on latency
+                if (latency > 2000) {
+                    // More than 2 seconds = slow
+                    setConnectionStatus('slow');
+                } else {
+                    setConnectionStatus('good');
+                }
+            } catch (error) {
+                // If Firebase fails, mark as slow
+                console.error('Connection check failed:', error);
+                setConnectionStatus('slow');
             }
         };
 
+        // Initial check
         updateConnectionStatus();
+
+        // Periodic check every 30 seconds
+        const interval = setInterval(updateConnectionStatus, 30000);
 
         // Listen for online/offline events
         window.addEventListener('online', updateConnectionStatus);
         window.addEventListener('offline', updateConnectionStatus);
 
+        // Listen for connection changes (if supported)
+        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (connection) {
+            connection.addEventListener('change', updateConnectionStatus);
+        }
+
         return () => {
+            clearInterval(interval);
             window.removeEventListener('online', updateConnectionStatus);
             window.removeEventListener('offline', updateConnectionStatus);
+            if (connection) {
+                connection.removeEventListener('change', updateConnectionStatus);
+            }
         };
-    }, [games, gameMode]);
+    }, []); // No dependencies needed
+
+    // Close tooltip when clicking outside
+    useEffect(() => {
+        if (!showStatusTooltip) return;
+
+        const handleClickOutside = (event) => {
+            // Check if click is outside the tooltip and indicator
+            const tooltipElement = event.target.closest('[data-connection-indicator]');
+            if (!tooltipElement) {
+                setShowStatusTooltip(false);
+            }
+        };
+
+        // Add listener with a small delay to avoid immediate closing
+        setTimeout(() => {
+            document.addEventListener('click', handleClickOutside);
+        }, 100);
+
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, [showStatusTooltip]);
 
     const handleCreateGame = async () => {
         const settings = {
@@ -954,17 +1019,19 @@ const Lobby = ({ onConnect, myId, user }) => {
             </div>
 
             {/* CONNECTION STATUS INDICATOR */}
-            <div style={{
-                marginTop: '1rem',
-                maxWidth: '900px',
-                width: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.5rem',
-                position: 'relative'
-            }}>
+            <div
+                data-connection-indicator
+                style={{
+                    marginTop: '1rem',
+                    maxWidth: '900px',
+                    width: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem',
+                    position: 'relative'
+                }}>
                 <div
                     onClick={() => setShowStatusTooltip(!showStatusTooltip)}
                     style={{
