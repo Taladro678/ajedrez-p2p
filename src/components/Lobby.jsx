@@ -6,6 +6,7 @@ import Settings from './Settings';
 import { lichessAuth, lichessApi } from '../services/lichess';
 import LichessChallenges from './LichessChallenges';
 import LichessSpectate from './LichessSpectate';
+import { translateText, getUserLanguage } from '../utils/translator';
 
 const Lobby = ({ onConnect, myId, user }) => {
     const [gameMode, setGameMode] = useState('p2p');
@@ -80,6 +81,16 @@ const Lobby = ({ onConnect, myId, user }) => {
     const [chatInput, setChatInput] = useState('');
     const [onlineUsers, setOnlineUsers] = useState(0);
     const [showChat, setShowChat] = useState(true);
+    const [userLang, setUserLang] = useState('en');
+    const [translatedMessages, setTranslatedMessages] = useState({}); // { messageId: translatedText }
+    const [translatingMessages, setTranslatingMessages] = useState(new Set()); // Set of message IDs being translated
+
+    // Initialize user language
+    useEffect(() => {
+        const lang = getUserLanguage();
+        setUserLang(lang);
+        console.log('User language:', lang);
+    }, []);
 
     useEffect(() => {
         // Listen for available games
@@ -483,6 +494,31 @@ const Lobby = ({ onConnect, myId, user }) => {
             setChatInput('');
         } catch (error) {
             console.error('Error sending message:', error);
+        }
+    };
+
+    // Translate message
+    const handleTranslateMessage = async (messageId, messageText) => {
+        if (translatedMessages[messageId]) {
+            const newTranslated = { ...translatedMessages };
+            delete newTranslated[messageId];
+            setTranslatedMessages(newTranslated);
+            return;
+        }
+
+        setTranslatingMessages(prev => new Set(prev).add(messageId));
+
+        try {
+            const translated = await translateText(messageText, userLang, 'auto');
+            setTranslatedMessages(prev => ({ ...prev, [messageId]: translated }));
+        } catch (error) {
+            console.error('Translation error:', error);
+        } finally {
+            setTranslatingMessages(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(messageId);
+                return newSet;
+            });
         }
     };
 
