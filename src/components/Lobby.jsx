@@ -576,52 +576,111 @@ const Lobby = ({ onConnect, myId, user }) => {
     return (
         <div className="lobby-container">
             {/* Navbar estilo Android */}
-            <div style={{
+            <div className="android-navbar" style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '1rem 0',
-                marginBottom: '1rem',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                padding: '1.2rem 1rem',
+                marginBottom: '1.5rem',
+                background: 'rgba(30, 41, 59, 0.6)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: '12px',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
             }}>
-                <h1 style={{ margin: 0, fontSize: '1.5rem', textAlign: 'left' }}>Ajedrez P2P</h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', textAlign: 'left' }}>Ajedrez P2P</h1>
+
+                    {/* Indicador de conexión */}
+                    <div
+                        data-connection-indicator
+                        onClick={() => setShowStatusTooltip(!showStatusTooltip)}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            padding: '0.3rem 0.7rem',
+                            background: connectionStatus === 'good' ? 'rgba(34, 197, 94, 0.15)' :
+                                connectionStatus === 'slow' ? 'rgba(251, 191, 36, 0.15)' :
+                                    'rgba(239, 68, 68, 0.15)',
+                            border: `1px solid ${connectionStatus === 'good' ? 'rgba(34, 197, 94, 0.3)' :
+                                connectionStatus === 'slow' ? 'rgba(251, 191, 36, 0.3)' :
+                                    'rgba(239, 68, 68, 0.3)'}`,
+                            borderRadius: '20px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            position: 'relative'
+                        }}
+                    >
+                        <div style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            background: connectionStatus === 'good' ? '#22c55e' :
+                                connectionStatus === 'slow' ? '#fbbf24' :
+                                    '#ef4444',
+                            boxShadow: `0 0 8px ${connectionStatus === 'good' ? '#22c55e' :
+                                connectionStatus === 'slow' ? '#fbbf24' :
+                                    '#ef4444'}`
+                        }} />
+                        <span style={{
+                            color: connectionStatus === 'good' ? '#22c55e' :
+                                connectionStatus === 'slow' ? '#fbbf24' :
+                                    '#ef4444'
+                        }}>
+                            {connectionStatus === 'good' ? 'Conectado' :
+                                connectionStatus === 'slow' ? 'Lento' :
+                                    'Sin conexión'}
+                        </span>
+                    </div>
+                </div>
 
                 {/* Menú de tres puntos - esquina derecha */}
                 <div style={{ position: 'relative' }}>
                     <button
+                        className="android-menu-button"
                         onClick={() => setShowMenu(!showMenu)}
                         style={{
-                            background: 'transparent',
+                            background: showMenu ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.05)',
                             border: 'none',
-                            fontSize: '1.5rem',
+                            fontSize: '1.8rem',
                             cursor: 'pointer',
-                            padding: '0.5rem',
+                            padding: '0.6rem',
                             borderRadius: '50%',
-                            transition: 'background 0.2s',
+                            transition: 'all 0.2s',
                             color: 'white',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center'
+                            justifyContent: 'center',
+                            width: '44px',
+                            height: '44px',
+                            boxShadow: showMenu ? '0 2px 8px rgba(0, 0, 0, 0.2)' : 'none'
                         }}
-                        onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
-                        onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                        onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
+                        onMouseOut={(e) => !showMenu && (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)')}
                         title="Menú"
+                        aria-label="Menú de opciones"
                     >
                         ⋮
                     </button>
 
                     {showMenu && (
-                        <div style={{
+                        <div className="android-dropdown" style={{
                             position: 'absolute',
                             top: '100%',
                             right: 0,
-                            background: '#1e293b',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: '8px',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                            minWidth: '180px',
+                            background: 'rgba(30, 41, 59, 0.95)',
+                            backdropFilter: 'blur(10px)',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            borderRadius: '12px',
+                            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                            minWidth: '200px',
                             zIndex: 1000,
-                            marginTop: '0.5rem'
+                            marginTop: '0.5rem',
+                            overflow: 'hidden',
+                            animation: 'fadeIn 0.2s ease-out'
                         }}>
                             <button
                                 onClick={() => {
@@ -630,7 +689,7 @@ const Lobby = ({ onConnect, myId, user }) => {
                                 }}
                                 style={{
                                     width: '100%',
-                                    padding: '0.8rem 1rem',
+                                    padding: '1rem 1.2rem',
                                     background: 'transparent',
                                     border: 'none',
                                     color: 'white',
@@ -638,16 +697,18 @@ const Lobby = ({ onConnect, myId, user }) => {
                                     cursor: 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '0.8rem',
+                                    gap: '1rem',
                                     fontSize: '0.95rem',
-                                    transition: 'background 0.2s'
+                                    transition: 'background 0.2s',
+                                    borderRadius: '12px 12px 0 0'
                                 }}
-                                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)'}
                                 onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
                             >
-                                <span style={{ fontSize: '1.2rem' }}>⚙️</span>
-                                Configuración
+                                <span style={{ fontSize: '1.4rem' }}>⚙️</span>
+                                <span style={{ fontWeight: '500' }}>Configuración</span>
                             </button>
+                            <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 0.8rem' }}></div>
                             <button
                                 onClick={() => {
                                     setShowDonate(true);
@@ -655,7 +716,7 @@ const Lobby = ({ onConnect, myId, user }) => {
                                 }}
                                 style={{
                                     width: '100%',
-                                    padding: '0.8rem 1rem',
+                                    padding: '1rem 1.2rem',
                                     background: 'transparent',
                                     border: 'none',
                                     color: 'white',
@@ -663,16 +724,17 @@ const Lobby = ({ onConnect, myId, user }) => {
                                     cursor: 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '0.8rem',
+                                    gap: '1rem',
                                     fontSize: '0.95rem',
                                     transition: 'background 0.2s'
                                 }}
-                                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'}
                                 onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
                             >
-                                <span style={{ fontSize: '1.2rem' }}>❤️</span>
-                                Donar
+                                <span style={{ fontSize: '1.4rem' }}>❤️</span>
+                                <span style={{ fontWeight: '500' }}>Donar</span>
                             </button>
+                            <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 0.8rem' }}></div>
                             <button
                                 onClick={() => {
                                     setShowAbout(true);
@@ -680,7 +742,7 @@ const Lobby = ({ onConnect, myId, user }) => {
                                 }}
                                 style={{
                                     width: '100%',
-                                    padding: '0.8rem 1rem',
+                                    padding: '1rem 1.2rem',
                                     background: 'transparent',
                                     border: 'none',
                                     color: 'white',
@@ -688,16 +750,16 @@ const Lobby = ({ onConnect, myId, user }) => {
                                     cursor: 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '0.8rem',
+                                    gap: '1rem',
                                     fontSize: '0.95rem',
-                                    borderRadius: '0 0 8px 8px',
+                                    borderRadius: '0 0 12px 12px',
                                     transition: 'background 0.2s'
                                 }}
-                                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)'}
                                 onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
                             >
-                                <span style={{ fontSize: '1.2rem' }}>ℹ️</span>
-                                Acerca de
+                                <span style={{ fontSize: '1.4rem' }}>ℹ️</span>
+                                <span style={{ fontWeight: '500' }}>Acerca de</span>
                             </button>
                         </div>
                     )}

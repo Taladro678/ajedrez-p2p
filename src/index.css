@@ -310,6 +310,50 @@ select option {
     }
 }
 
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* --- ANDROID NAVBAR STYLES --- */
+.android-navbar {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.android-menu-button {
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+.android-menu-button:active {
+    transform: scale(0.95);
+}
+
+.android-dropdown {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.android-dropdown button {
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: 500;
+}
+
+.android-dropdown button:active {
+    transform: scale(0.98);
+}
+
 /* --- LOBBY RESPONSIVE LAYOUT --- */
 .lobby-container {
     display: flex;
