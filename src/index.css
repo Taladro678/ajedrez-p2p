@@ -359,12 +359,12 @@ select option {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     min-height: 100vh;
     width: 100%;
     max-width: 1200px;
     margin: 0 auto;
-    padding: 1rem;
+    padding: 0.75rem;
     background-color: var(--bg-color);
 }
 

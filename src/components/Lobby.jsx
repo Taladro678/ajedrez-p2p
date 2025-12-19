@@ -580,16 +580,16 @@ const Lobby = ({ onConnect, myId, user }) => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '1.2rem 1rem',
-                marginBottom: '1.5rem',
+                padding: '0.75rem 1rem',
+                marginBottom: '1rem',
                 background: 'rgba(30, 41, 59, 0.6)',
                 backdropFilter: 'blur(10px)',
-                borderRadius: '12px',
+                borderRadius: '8px',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', textAlign: 'left' }}>Ajedrez P2P</h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '600', textAlign: 'left' }}>Ajedrez P2P</h1>
 
                     {/* Indicador de conexión */}
                     <div
@@ -598,37 +598,38 @@ const Lobby = ({ onConnect, myId, user }) => {
                         style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '0.4rem',
-                            padding: '0.3rem 0.7rem',
-                            background: connectionStatus === 'good' ? 'rgba(34, 197, 94, 0.15)' :
-                                connectionStatus === 'slow' ? 'rgba(251, 191, 36, 0.15)' :
-                                    'rgba(239, 68, 68, 0.15)',
-                            border: `1px solid ${connectionStatus === 'good' ? 'rgba(34, 197, 94, 0.3)' :
-                                connectionStatus === 'slow' ? 'rgba(251, 191, 36, 0.3)' :
-                                    'rgba(239, 68, 68, 0.3)'}`,
-                            borderRadius: '20px',
+                            gap: '0.35rem',
+                            padding: '0.25rem 0.5rem',
+                            background: connectionStatus === 'good' ? 'rgba(34, 197, 94, 0.12)' :
+                                connectionStatus === 'slow' ? 'rgba(251, 191, 36, 0.12)' :
+                                    'rgba(239, 68, 68, 0.12)',
+                            border: `1px solid ${connectionStatus === 'good' ? 'rgba(34, 197, 94, 0.25)' :
+                                connectionStatus === 'slow' ? 'rgba(251, 191, 36, 0.25)' :
+                                    'rgba(239, 68, 68, 0.25)'}`,
+                            borderRadius: '12px',
                             cursor: 'pointer',
                             transition: 'all 0.2s',
-                            fontSize: '0.75rem',
-                            fontWeight: '600',
+                            fontSize: '0.7rem',
+                            fontWeight: '500',
                             position: 'relative'
                         }}
                     >
                         <div style={{
-                            width: '8px',
-                            height: '8px',
+                            width: '6px',
+                            height: '6px',
                             borderRadius: '50%',
                             background: connectionStatus === 'good' ? '#22c55e' :
                                 connectionStatus === 'slow' ? '#fbbf24' :
                                     '#ef4444',
-                            boxShadow: `0 0 8px ${connectionStatus === 'good' ? '#22c55e' :
+                            boxShadow: `0 0 6px ${connectionStatus === 'good' ? '#22c55e' :
                                 connectionStatus === 'slow' ? '#fbbf24' :
                                     '#ef4444'}`
                         }} />
                         <span style={{
                             color: connectionStatus === 'good' ? '#22c55e' :
                                 connectionStatus === 'slow' ? '#fbbf24' :
-                                    '#ef4444'
+                                    '#ef4444',
+                            opacity: 0.9
                         }}>
                             {connectionStatus === 'good' ? 'Conectado' :
                                 connectionStatus === 'slow' ? 'Lento' :
@@ -645,17 +646,17 @@ const Lobby = ({ onConnect, myId, user }) => {
                         style={{
                             background: showMenu ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.05)',
                             border: 'none',
-                            fontSize: '1.8rem',
+                            fontSize: '1.5rem',
                             cursor: 'pointer',
-                            padding: '0.6rem',
+                            padding: '0.4rem',
                             borderRadius: '50%',
                             transition: 'all 0.2s',
                             color: 'white',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            width: '44px',
-                            height: '44px',
+                            width: '36px',
+                            height: '36px',
                             boxShadow: showMenu ? '0 2px 8px rgba(0, 0, 0, 0.2)' : 'none'
                         }}
                         onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
