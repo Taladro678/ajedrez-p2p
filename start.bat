@@ -18,5 +18,11 @@ if not exist "node_modules\" (
 
 echo [*] Iniciando servidor de desarrollo...
 echo [i] Presiona Ctrl+C para detener el servidor
+echo [i] El navegador se abrirá automáticamente
 echo.
+
+REM Esperar 3 segundos y abrir el navegador
+timeout /t 3 /nobreak >nul
+start http://localhost:5173
+
 cmd /k npm start
