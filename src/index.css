@@ -314,7 +314,7 @@ select option {
 .lobby-container {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
     min-height: 100vh;
     width: 100%;
@@ -326,7 +326,6 @@ select option {
     margin-bottom: 1rem;
     font-size: 1.5rem;
     color: var(--on-background);
-    text-align: center;
 }
 
 /* DESKTOP: 2 columnas lado a lado */
