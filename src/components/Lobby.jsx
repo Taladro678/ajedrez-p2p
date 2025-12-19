@@ -105,6 +105,22 @@ const Lobby = ({ onConnect, myId, user }) => {
         console.log('User language:', lang);
     }, []);
 
+    // Sync Lichess token from Google Drive on mount (if user is logged in)
+    useEffect(() => {
+        if (user && !lichessToken) {
+            console.log('User logged in, attempting to sync Lichess token from cloud...');
+            lichessAuth.syncTokenFromCloud().then(token => {
+                if (token) {
+                    setLichessToken(token);
+                    console.log('✅ Lichess token restored from Google Drive');
+                }
+            }).catch(err => {
+                console.error('Error syncing Lichess token:', err);
+            });
+        }
+    }, [user, lichessToken]);
+
+
     useEffect(() => {
         // Listen for available games
         const q = query(collection(db, "games"));

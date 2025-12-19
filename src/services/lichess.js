@@ -2,6 +2,9 @@ export const LICHESS_API_URL = 'https://lichess.org';
 const CLIENT_ID = import.meta.env.VITE_LICHESS_CLIENT_ID || 'example-app-id';
 const REDIRECT_URI = window.location.origin;
 
+// Import Google Drive service for token sync
+import { googleDriveService } from './googleDrive';
+
 // Helper to generate random string for PKCE
 function randomString(length) {
     const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -75,7 +78,14 @@ export const lichessAuth = {
 
         const data = await response.json();
         if (data.access_token) {
+            // Save to localStorage
             localStorage.setItem('lichess_token', data.access_token);
+
+            // Sync to Google Drive (non-blocking)
+            googleDriveService.saveLichessToken(data.access_token).catch(err =>
+                console.warn('Could not sync Lichess token to Drive:', err)
+            );
+
             // Clean URL but keep it simple, calling app should handle navigation if needed
             window.history.replaceState({}, document.title, "/");
             return data.access_token;
@@ -88,8 +98,49 @@ export const lichessAuth = {
         return localStorage.getItem('lichess_token');
     },
 
+    /**
+     * Sync token from Google Drive to localStorage
+     * Call this on app initialization if user is logged in with Google
+     */
+    async syncTokenFromCloud() {
+        try {
+            // Only sync if we don't have a local token
+            const localToken = this.getToken();
+            if (localToken) {
+                console.log('Local Lichess token already exists, skipping cloud sync');
+                return localToken;
+            }
+
+            // Try to get token from Google Drive
+            const cloudToken = await googleDriveService.getLichessToken();
+            if (cloudToken) {
+                localStorage.setItem('lichess_token', cloudToken);
+                console.log('Lichess token synced from Google Drive');
+                return cloudToken;
+            }
+        } catch (error) {
+            console.error('Error syncing Lichess token from cloud:', error);
+        }
+        return null;
+    },
+
     logout() {
         localStorage.removeItem('lichess_token');
+    },
+
+    /**
+     * Manually delete Lichess token from both localStorage and Google Drive
+     * This should be called from settings when user explicitly wants to remove the token
+     */
+    async deleteTokenCompletely() {
+        localStorage.removeItem('lichess_token');
+
+        // Also remove from Google Drive
+        await googleDriveService.deleteLichessToken().catch(err =>
+            console.warn('Could not delete Lichess token from Drive:', err)
+        );
+
+        console.log('Lichess token deleted from all locations');
     }
 };
 

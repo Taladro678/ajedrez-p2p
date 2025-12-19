@@ -4,12 +4,14 @@ import { soundManager } from '../utils/soundManager';
 import '../styles/Settings.css';
 
 import { googleDriveService } from '../services/googleDrive';
+import { lichessAuth } from '../services/lichess';
 
 const Settings = ({ onClose }) => {
     const { settings, updateSettings, updateSoundSettings, updateGameplaySettings, updateAnalysisSettings, updateAntiCheatSettings } = useSettings();
     const [activeTab, setActiveTab] = useState('sounds');
     const [backupStatus, setBackupStatus] = useState(null); // 'loading', 'success', 'error'
     const [errorMessage, setErrorMessage] = useState('');
+    const [lichessTokenStatus, setLichessTokenStatus] = useState(null); // 'deleting', 'deleted', 'error'
 
     const handleTestSound = (soundType) => {
         soundManager.play(soundType);
@@ -47,6 +49,23 @@ const Settings = ({ onClose }) => {
         } catch (error) {
             console.error(error);
             setBackupStatus('error');
+            setErrorMessage(error.message);
+        }
+    };
+
+    const handleDeleteLichessToken = async () => {
+        if (!confirm('¿Estás seguro de que quieres eliminar tu token de Lichess? Tendrás que volver a autenticarte la próxima vez que quieras jugar en Lichess.')) {
+            return;
+        }
+
+        setLichessTokenStatus('deleting');
+        try {
+            await lichessAuth.deleteTokenCompletely();
+            setLichessTokenStatus('deleted');
+            setTimeout(() => setLichessTokenStatus(null), 3000);
+        } catch (error) {
+            console.error(error);
+            setLichessTokenStatus('error');
             setErrorMessage(error.message);
         }
     };
@@ -325,6 +344,7 @@ const Settings = ({ onClose }) => {
                     {activeTab === 'backup' && (
                         <div className="settings-section">
                             <div className="setting-item" style={{ textAlign: 'center', padding: '1rem' }}>
+                                <h3 style={{ marginBottom: '0.5rem' }}>💾 Configuración y Progreso</h3>
                                 <p style={{ marginBottom: '1rem' }}>
                                     Guarda tu configuración y progreso en tu Google Drive personal.
                                 </p>
@@ -358,6 +378,51 @@ const Settings = ({ onClose }) => {
                                         ⚠️ Debes iniciar sesión con Google para usar esta función.
                                     </p>
                                 )}
+                            </div>
+
+                            {/* Lichess Token Management */}
+                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '1.5rem', paddingTop: '1.5rem' }}>
+                                <div className="setting-item" style={{ textAlign: 'center', padding: '1rem' }}>
+                                    <h3 style={{ marginBottom: '0.5rem' }}>♟️ Token de Lichess</h3>
+                                    <p style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
+                                        Tu token de Lichess se sincroniza automáticamente con Google Drive para que puedas acceder desde cualquier dispositivo.
+                                    </p>
+                                    <p style={{ marginBottom: '1rem', fontSize: '0.85rem', color: '#aaa' }}>
+                                        Si deseas eliminar tu token guardado (local y en la nube), usa el botón de abajo.
+                                    </p>
+
+                                    <button
+                                        onClick={handleDeleteLichessToken}
+                                        disabled={lichessTokenStatus === 'deleting'}
+                                        style={{
+                                            padding: '0.6rem 1.2rem',
+                                            background: 'rgba(239, 68, 68, 0.1)',
+                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                            color: '#ef4444',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            fontSize: '0.9rem'
+                                        }}
+                                        onMouseOver={(e) => {
+                                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                                            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                                        }}
+                                        onMouseOut={(e) => {
+                                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                                            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                                        }}
+                                    >
+                                        🗑️ Eliminar Token de Lichess
+                                    </button>
+
+                                    {lichessTokenStatus === 'deleting' && <p style={{ marginTop: '1rem', color: '#aaa' }}>Eliminando...</p>}
+                                    {lichessTokenStatus === 'deleted' && <p style={{ marginTop: '1rem', color: '#4ade80' }}>✅ Token eliminado correctamente</p>}
+                                    {lichessTokenStatus === 'error' && <p style={{ marginTop: '1rem', color: '#ef4444' }}>❌ Error: {errorMessage}</p>}
+                                </div>
                             </div>
                         </div>
                     )}

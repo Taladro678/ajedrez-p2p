@@ -314,10 +314,12 @@ select option {
 .lobby-container {
     display: flex;
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
     justify-content: center;
     min-height: 100vh;
     width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
     padding: 1rem;
     background-color: var(--bg-color);
 }
@@ -335,7 +337,7 @@ select option {
     border-radius: 12px;
     box-shadow: var(--elevation-4);
     width: 100%;
-    max-width: 900px;
+    max-width: 800px;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
