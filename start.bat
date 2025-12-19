@@ -1,4 +1,9 @@
 @echo off
-echo Iniciando aplicación de ajedrez P2P...
+echo ========================================
+echo   Iniciando Ajedrez P2P
+echo ========================================
 echo.
-npm start
+echo Ejecutando servidor de desarrollo...
+echo Presiona Ctrl+C para detener el servidor
+echo.
+cmd /k npm start
