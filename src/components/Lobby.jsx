@@ -568,7 +568,7 @@ const Lobby = ({ onConnect, myId, user }) => {
                 marginBottom: '1rem',
                 borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
             }}>
-                <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Ajedrez P2P</h1>
+                <h1 style={{ margin: 0, fontSize: '1.5rem', textAlign: 'left' }}>Ajedrez P2P</h1>
 
                 {/* Menú de tres puntos - esquina derecha */}
                 <div style={{ position: 'relative' }}>
