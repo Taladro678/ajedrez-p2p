@@ -1,0 +1,61 @@
+name: Build and Release OTA Update
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'updates/**'
+      - 'README.md'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build App
+        run: npm run build
+
+      - name: Prepare Update Directory
+        run: |
+          mkdir -p updates
+          # Zip the dist folder content
+          cd dist
+          zip -r ../updates/bundle.zip .
+          cd ..
+          
+      - name: Generate Version JSON
+        run: |
+          # Get version from package.json or use timestamp
+          VERSION=$(node -p "require('./package.json').version")
+          TIMESTAMP=$(date +%s)
+          FULL_VERSION="${VERSION}-${TIMESTAMP}"
+          
+          echo "Generating version $FULL_VERSION"
+          
+          # Create version.json compatible with capacitor-updater
+          cat > updates/version.json <<EOF
+          {
+            "version": "$FULL_VERSION",
+            "url": "https://raw.githubusercontent.com/${{ github.repository }}/main/updates/bundle.zip"
+          }
+          EOF
+
+      - name: Commit and Push Update
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "chore: release ota update ${{ github.sha }}"
+          file_pattern: updates/*

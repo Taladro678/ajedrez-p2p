@@ -22,9 +22,9 @@
       "forceCodeForRefreshToken": true
     },
     "CapacitorUpdater": {
-      "appId": "CAMBIA_ESTO_POR_TU_ID_DE_CAPGO",
+      "autoUpdateUrl": "https://raw.githubusercontent.com/Taladro678/ajedrez-p2p/main/updates/version.json",
       "autoUpdate": true,
-      "stats": true,
+      "stats": false,
       "resetWhenUpdateFailed": true
     }
   }
