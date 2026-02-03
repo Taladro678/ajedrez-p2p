@@ -1,76 +1,57 @@
 # Ajedrez P2P ♟️
 
-**La experiencia definitiva de ajedrez descentralizado.**
-
-Ajedrez P2P es una plataforma moderna y potente diseñada para entusiastas del ajedrez que buscan privacidad, rendimiento y herramientas de análisis avanzadas. A diferencia de las plataformas tradicionales, Ajedrez P2P utiliza tecnología Peer-to-Peer para conectar a los jugadores directamente, eliminando la necesidad de servidores intermediarios para la lógica del juego.
+**Juega al ajedrez de forma descentralizada, sin intermediarios y con potencia de análisis profesional.**
 
 ---
 
-## 🚀 Características Principales
+## 🎮 ¡Empieza a jugar ya!
 
-### 🤝 Conectividad P2P Real
-Juega contra amigos o desconocidos con una conexión directa. Menos latencia, más privacidad y total independencia de servidores centrales de juego gracias a **PeerJS**.
+### 🌐 Versión Web
+No necesitas instalar nada. Accede directamente desde tu navegador:
+👉 **[Jugar Ajedrez P2P (Web)](https://ajedrez-p2p.vercel.app)**
+*Recomendado: Chrome o Edge para la mejor experiencia.*
 
-### 🤖 Inteligencia Artificial y Análisis
-- **Stockfish Integrado**: Desafía al motor de ajedrez más potente del mundo directamente en tu navegador.
-- **Modo Análisis**: Revisa tus partidas del historial, analiza posiciones críticas y descubre los mejores movimientos sugeridos por la IA.
-
-### 🌍 Social y Global
-- **Chat Global**: Interactúa con la comunidad en tiempo real.
-- **Traducción Automática**: Rompe las barreras del idioma con el sistema de traducción inteligente integrado en el chat.
-- **Banderas de Países**: Detección automática de ubicación para una experiencia social más inmersiva.
-
-### ☁️ Sincronización en la Nube
-No pierdas nunca tu progreso. Ajedrez P2P se sincroniza automáticamente con tu cuenta de **Google Drive**, manteniendo tu historial de partidas y configuraciones seguras y accesibles desde cualquier dispositivo.
-
-### 📱 Experiencia Móvil de Vanguardia
-- **Capacitor & OTA**: Instalable en Android con actualizaciones **Over-The-Air (OTA)** automáticas. ¡Tu app siempre estará al día sin necesidad de descargar nuevos APKs manualmente!
-- **Diseño Premium**: Interfaz fluida, animaciones micro-interactivas y efectos de sonido inmersivos.
+### 📱 Versión Android
+Disfruta de la experiencia completa con notificaciones y rendimiento optimizado:
+📦 **[Descargar APK (Próximamente)](https://github.com/Taladro678/ajedrez-p2p/releases)**
+*Nota: Una vez instalada, la app se actualiza sola gracias a nuestro sistema OTA.*
 
 ---
 
-## 🛠️ Stack Tecnológico
+## ✨ ¿Por qué Ajedrez P2P?
 
-- **Frontend**: React + Vite
-- **Motor de Juego**: Chess.js + React-Chessboard
-- **P2P**: PeerJS
-- **Backend/Presencia**: Firebase (Auth & Firestore)
-- **Persistencia**: Google Drive API + LocalStorage
-- **Móvil**: Capacitor.js + Capgo (OTA Self-hosted)
-- **Traducción**: MyMemory API
+Ajedrez P2P no es solo otro sitio de ajedrez. Es una herramienta diseñada para la privacidad y el análisis profundo:
 
----
-
-## 🏗️ Configuración de Desarrollo
-
-1.  **Clonar el repositorio**:
-    ```bash
-    git clone https://github.com/Taladro678/ajedrez-p2p.git
-    cd ajedrez-p2p
-    ```
-
-2.  **Instalar dependencias**:
-    ```bash
-    npm install
-    ```
-
-3.  **Iniciar modo desarrollo**:
-    ```bash
-    npm run dev
-    ```
+- **Conexión Directa (P2P)**: Juega directamente contra tu oponente sin pasar por servidores centrales.
+- **Análisis con Stockfish**: Motor de IA integrado para revisar tus jugadas y mejorar tu nivel.
+- **Sincronización Cloud**: Tus partidas y configuraciones se guardan en tu propio **Google Drive**.
+- **Chat con Traducción**: Habla con jugadores de todo el mundo sin barreras lingüísticas.
 
 ---
 
-## 📦 Despliegue y OTA
+## 🚀 Guía Rápida para Desarrolladores
 
-Este proyecto utiliza un sistema de **Autohospedaje de Actualizaciones (Self-Hosted OTA)**. Los cambios pusheados a la rama `main` disparan una GitHub Action que compila la versión estable y la pone a disposición de todos los clientes instalados automáticamente.
+Si deseas clonar el proyecto y ejecutarlo localmente:
 
----
-
-## 📝 Licencia
-
-Este proyecto es privado. Todos los derechos reservados por el autor.
+1.  **Clonación**: `git clone https://github.com/Taladro678/ajedrez-p2p.git`
+2.  **Instalación**: `npm install`
+3.  **Ejecución**: `npm run dev`
 
 ---
 
-*Desarrollado con ❤️ para la comunidad global de ajedrez.*
+## 🛠️ Tecnologías Utilizadas
+
+- **Núcleo**: React + Vite
+- **Comunicaciones**: PeerJS (P2P) + Firebase (Presencia)
+- **Persistencia**: Google Drive API
+- **Móvil**: Capacitor.js + Capgo (OTA)
+
+---
+
+## 📝 Contribuciones y Soporte
+
+Este es un proyecto enfocado en la comunidad. Si encuentras un error o tienes una sugerencia, por favor abre un **Issue** en este repositorio.
+
+---
+
+*Hecho con pasión por el ajedrez y la tecnología descentralizada.*
