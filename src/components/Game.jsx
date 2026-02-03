@@ -6,6 +6,7 @@ import VideoChat from './VideoChat';
 import { googleDriveService } from '../services/googleDrive';
 import { soundManager } from '../utils/soundManager';
 import { useSettings } from '../contexts/SettingsContext';
+import { MOVE_TYPES, classifyMove, calculateAccuracy, detectEngineSimilarity } from '../utils/chessAnalysis';
 
 // --- IMÁGENES DE PIEZAS ---
 const PIECE_IMAGES = {
@@ -208,7 +209,7 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
     }, [game, internalSettings, winner]);
 
     // Analyze position using secondary worker
-    const analyzePosition = (fen, moveNumber) => {
+    const analyzePosition = (fen, moveNumber, turn) => {
         if (!analyst.current) return;
 
         analyst.current.postMessage(`position fen ${fen}`);
@@ -216,20 +217,42 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
 
         const handleMessage = (e) => {
             const line = e.data;
-            if (line.includes('score cp')) {
-                const match = line.match(/score cp (-?\d+)/);
-                if (match) {
-                    const score = parseInt(match[1]) / 100;
-                    setAnalysisResults(prev => {
-                        const newResults = [...prev];
-                        // If it's black's turn to move in the analysis, score is relative to black.
-                        // We usually want white-relative score for graphs, or relative to current player.
-                        // Stockfish gives score relative to side to move.
-                        // Let's store it as is and adjust in UI if needed, or normalized here.
-                        newResults[moveNumber] = { fen, score, moveNumber };
-                        return newResults;
-                    });
+            if (line.includes('score cp') || line.includes('score mate')) {
+                let rawScore = 0;
+                if (line.includes('score cp')) {
+                    const match = line.match(/score cp (-?\d+)/);
+                    if (match) rawScore = parseInt(match[1]) / 100;
+                } else {
+                    const match = line.match(/score mate (-?\d+)/);
+                    if (match) rawScore = (parseInt(match[1]) > 0 ? 100 : -100);
                 }
+
+                // Normalize to white: Stockfish gives score relative to side to move
+                // current fen turn (after move) is the side about to move
+                const sideToMove = fen.split(' ')[1];
+                const score = sideToMove === 'w' ? rawScore : -rawScore;
+
+                setAnalysisResults(prev => {
+                    const newResults = [...prev];
+                    const prevResult = moveNumber > 0 ? newResults[moveNumber - 1] : null;
+
+                    const classification = classifyMove(
+                        prevResult ? prevResult.score : 0,
+                        score,
+                        turn,
+                        false, // TODO: add multi-pv best move check
+                        game.moves().length === 1
+                    );
+
+                    newResults[moveNumber] = {
+                        fen,
+                        score,
+                        moveNumber,
+                        turn,
+                        classification
+                    };
+                    return newResults;
+                });
             }
         };
 
@@ -255,12 +278,32 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
 
     // Detect engine usage
     const detectEngineUsage = () => {
-        if (analysisResults.length < 10) return null;
-        let suspiciousMoves = 0;
-        // Mock analysis logic for display
+        if (analysisResults.length < 6) return null;
+
+        const myColor = internalSettings?.color || 'white';
+        const myMoves = analysisResults.filter(r => r && (myColor === 'white' ? r.turn === 'w' : r.turn === 'b'));
+
+        if (myMoves.length === 0) return null;
+
+        const accuracy = calculateAccuracy(myMoves.map(m => m.classification));
+        const similarity = detectEngineSimilarity(myMoves.map(m => ({ isBestMove: m.classification === MOVE_TYPES.BEST || m.classification === MOVE_TYPES.BRILLIANT })));
+
+        const counts = {
+            brilliant: myMoves.filter(m => m.classification === MOVE_TYPES.BRILLIANT).length,
+            best: myMoves.filter(m => m.classification === MOVE_TYPES.BEST).length,
+            excellent: myMoves.filter(m => m.classification === MOVE_TYPES.EXCELLENT).length,
+            good: myMoves.filter(m => m.classification === MOVE_TYPES.GOOD).length,
+            inaccuracy: myMoves.filter(m => m.classification === MOVE_TYPES.INACCURACY).length,
+            mistake: myMoves.filter(m => m.classification === MOVE_TYPES.MISTAKE).length,
+            blunder: myMoves.filter(m => m.classification === MOVE_TYPES.BLUNDER).length,
+        };
+
         return {
-            accuracy: "Calculando...",
-            suspicious: false
+            accuracy,
+            similarity,
+            suspicious: similarity > 90 || (accuracy > 95 && similarity > 80),
+            counts,
+            totalMoves: myMoves.length
         };
     };
 
@@ -303,13 +346,13 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
     useEffect(() => {
         if (whiteTime === 0 && !winner) {
             setWinner('Negras (Tiempo)');
-            if (internalSettings?.color === 'black') playSound('win');
-            else playSound('lose');
+            if (internalSettings?.color === 'black') soundManager.playWin();
+            else soundManager.playLose();
         }
         if (blackTime === 0 && !winner) {
             setWinner('Blancas (Tiempo)');
-            if (internalSettings?.color === 'white') playSound('win');
-            else playSound('lose');
+            if (internalSettings?.color === 'white') soundManager.playWin();
+            else soundManager.playLose();
         }
     }, [whiteTime, blackTime, winner, internalSettings]);
 
@@ -373,7 +416,7 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                 setInternalSettings(mySettings);
             } else if (data.type === 'chat') {
                 setMessages(prev => [...prev, { sender: 'Oponente', text: data.message }]);
-                playSound('notify');
+                soundManager.playNotify();
                 if (!isChatOpen) {
                     setUnreadCount(prev => prev + 1);
                     setLastToast({ sender: 'Oponente', text: data.message, id: Date.now() });
@@ -381,7 +424,7 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                 }
             } else if (data.type === 'chat') {
                 setMessages(prev => [...prev, { sender: 'Oponente', text: data.message }]);
-                playSound('notify');
+                soundManager.playNotify();
                 if (!isChatOpen) {
                     setUnreadCount(prev => prev + 1);
                     setLastToast({ sender: 'Oponente', text: data.message, id: Date.now() });
@@ -389,14 +432,14 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                 }
             } else if (data.type === 'resign') {
                 setWinner('Tú (Rendición)');
-                playSound('win');
+                soundManager.playWin();
             } else if (data.type === 'offer-draw') {
                 setDrawOffer(true);
-                playSound('notify');
+                soundManager.playNotify();
                 setLastToast({ sender: 'Sistema', text: 'Oponente ofrece tablas', id: Date.now() });
             } else if (data.type === 'draw-accepted') {
                 setWinner('Tablas (Acuerdo)');
-                playSound('draw');
+                soundManager.playDraw();
                 setLastToast({ sender: 'Sistema', text: 'Tablas aceptadas', id: Date.now() });
             } else if (data.type === 'draw-declined') {
                 setLastToast({ sender: 'Sistema', text: 'Tablas rechazadas', id: Date.now() });
@@ -404,7 +447,7 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                 if (callStatus === 'idle') {
                     setIncomingCallType(data.callType);
                     setCallStatus('incoming');
-                    playSound('notify');
+                    soundManager.playNotify();
                 } else {
                     // Busy
                     if (connection) connection.send({ type: 'call-busy' });
@@ -431,7 +474,7 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                     id: Date.now(),
                     style: { background: '#f59e0b', color: 'black' }
                 });
-                playSound('notify');
+                soundManager.playNotify();
             } else if (data.type === 'focus-gained') {
                 setLastToast({
                     sender: 'Seguridad',
@@ -473,23 +516,23 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                 const myColor = internalSettings?.color || 'white';
                 const loserColor = game.turn() === 'w' ? 'white' : 'black';
                 if (myColor === loserColor) {
-                    playSound('lose');
+                    soundManager.playLose();
                 } else {
-                    playSound('win');
+                    soundManager.playWin();
                 }
             } else if (game.isStalemate()) {
                 resultMessage = 'Tablas por Ahogado (Stalemate)';
                 console.log('✓ STALEMATE!');
-                playSound('draw');
+                soundManager.playDraw();
             } else if (game.isThreefoldRepetition()) {
                 resultMessage = 'Tablas por Repetición';
-                playSound('draw');
+                soundManager.playDraw();
             } else if (game.isInsufficientMaterial()) {
                 resultMessage = 'Tablas por Material Insuficiente';
-                playSound('draw');
+                soundManager.playDraw();
             } else if (game.isDraw()) {
                 resultMessage = 'Tablas';
-                playSound('draw');
+                soundManager.playDraw();
             }
 
             if (resultMessage) {
@@ -510,15 +553,15 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                     // Guardar último movimiento para resaltado
                     setLastMove({ from: result.from, to: result.to });
 
-                    if (result.captured) playSound('capture');
-                    else playSound('move');
+                    if (result.captured) soundManager.playCapture();
+                    else soundManager.playMove();
 
                     // Game over will be checked by useEffect
 
                     // Analyze position in background
                     if (engine.current) {
                         const moveNumber = copy.history().length;
-                        setTimeout(() => analyzePosition(copy.fen(), moveNumber), 100);
+                        setTimeout(() => analyzePosition(copy.fen(), moveNumber, copy.turn() === 'w' ? 'b' : 'w'), 100);
                     }
 
                     return copy;
@@ -554,8 +597,8 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                     setLastMove({ from: move.from, to: move.to });
 
                     // Play Sound
-                    if (move.captured) playSound('capture');
-                    else playSound('move');
+                    if (move.captured) soundManager.playCapture();
+                    else soundManager.playMove();
 
                     setGame(gameCopy);
                     setSelectedSquare(null);
@@ -567,7 +610,7 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
 
                     // Auto-analyze
                     if (engine.current) {
-                        setTimeout(() => analyzePosition(gameCopy.fen(), gameCopy.history().length), 100);
+                        setTimeout(() => analyzePosition(gameCopy.fen(), gameCopy.history().length, gameCopy.turn() === 'w' ? 'b' : 'w'), 100);
                     }
                     return;
                 }
@@ -640,8 +683,8 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                 setLastMove({ from: move.from, to: move.to });
 
                 // Play Sound
-                if (move.captured) playSound('capture');
-                else playSound('move');
+                if (move.captured) soundManager.playCapture();
+                else soundManager.playMove();
 
                 setGame(gameCopy);
 
@@ -679,7 +722,7 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
         if (window.confirm('¿Seguro que quieres rendirte?')) {
             if (connection) connection.send({ type: 'resign' });
             setWinner('Oponente (Rendición)');
-            playSound('lose');
+            soundManager.playLose();
         }
     };
 
@@ -692,7 +735,7 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
         if (connection) connection.send({ type: 'draw-accepted' });
         setWinner('Tablas (Acuerdo)');
         setDrawOffer(false);
-        playSound('draw');
+        soundManager.playDraw();
     };
 
     const declineDraw = () => {
@@ -1253,13 +1296,19 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                                     padding: '0.75rem',
                                     marginBottom: '1rem'
                                 }}>
-                                    <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
-                                        {stats.suspicious ? '⚠️ Posible uso de motor' : '✅ Juego humano'}
+                                    <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '1.0rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {stats.suspicious ? '⚠️ Similitud alta (IA)' : '✅ Juego Humano'}
+                                        <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: '#94a3b8' }}>{stats.accuracy}% precisión</span>
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>
-                                        <div>Precisión: {stats.accuracy}%</div>
-                                        <div>Jugadas perfectas: {stats.perfectMoves}/{stats.totalMoves} ({stats.perfectRate}%)</div>
-                                        <div>Jugadas buenas: {stats.goodMoves}/{stats.totalMoves}</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#cbd5e1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+                                        <div>🚀 Brillantes: {stats.counts.brilliant}</div>
+                                        <div>⭐ Mejores: {stats.counts.best}</div>
+                                        <div>✅ Excelentes: {stats.counts.excellent}</div>
+                                        <div>👍 Buenas: {stats.counts.good}</div>
+                                        <div>?! Imprecisiones: {stats.counts.inaccuracy}</div>
+                                        <div>? Errores: {stats.counts.mistake}</div>
+                                        <div style={{ color: '#ef4444' }}>?? Graves: {stats.counts.blunder}</div>
+                                        <div style={{ color: '#3b82f6' }}>🎯 Similitud: {stats.similarity}%</div>
                                     </div>
                                 </div>
                             );
@@ -1267,18 +1316,15 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
 
                         {/* Move List */}
                         <div style={{ fontSize: '0.85rem' }}>
-                            <div style={{ color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 'bold' }}>Jugadas analizadas:</div>
+                            <div style={{ color: '#94a3b8', marginBottom: '0.8rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>
+                                Jugadas analizadas:
+                            </div>
                             {analysisResults.map((result, i) => {
                                 if (!result) return null;
                                 const moveNum = Math.floor(i / 2) + 1;
                                 const isWhite = i % 2 === 0;
                                 const moveLabel = isWhite ? `${moveNum}.` : `${moveNum}...`;
-
-                                // Classify move quality
-                                let classification = { type: 'ok', label: '', color: '#94a3b8' };
-                                if (i > 0 && analysisResults[i - 1]) {
-                                    classification = classifyMove(analysisResults[i - 1].score, result.score);
-                                }
+                                const classification = result.classification || { type: 'ok', label: '', color: '#94a3b8', name: '---' };
 
                                 return (
                                     <div
@@ -1292,27 +1338,34 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
                                             display: 'flex',
                                             justifyContent: 'space-between',
                                             alignItems: 'center',
-                                            border: currentAnalysisMove === i ? '1px solid #3b82f6' : '1px solid transparent'
+                                            border: currentAnalysisMove === i ? '1px solid #3b82f6' : '1px solid transparent',
+                                            transition: 'all 0.1s'
                                         }}
                                         onClick={() => setCurrentAnalysisMove(i)}
                                     >
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <span style={{ color: isWhite ? '#fff' : '#94a3b8', fontWeight: 'bold' }}>{moveLabel}</span>
-                                            <span style={{ color: '#cbd5e1' }}>Jugada {i + 1}</span>
-                                            {classification.label && (
-                                                <span style={{
-                                                    color: classification.color,
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.85rem'
-                                                }}>
-                                                    {classification.label}
-                                                </span>
-                                            )}
+                                            <span style={{ color: isWhite ? '#fff' : '#94a3b8', fontWeight: 'bold', width: '35px' }}>{moveLabel}</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                {classification.label && (
+                                                    <span style={{
+                                                        background: classification.color,
+                                                        color: 'white',
+                                                        fontSize: '0.65rem',
+                                                        padding: '1px 4px',
+                                                        borderRadius: '3px',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        {classification.label}
+                                                    </span>
+                                                )}
+                                                <span style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>{classification.name}</span>
+                                            </div>
                                         </div>
                                         <span style={{
                                             color: result.score > 0 ? '#22c55e' : '#ef4444',
                                             fontWeight: 'bold',
-                                            fontSize: '0.9rem'
+                                            fontSize: '0.85rem',
+                                            fontFamily: 'monospace'
                                         }}>
                                             {result.score > 0 ? '+' : ''}{result.score.toFixed(2)}
                                         </span>
@@ -1421,39 +1474,6 @@ const Game = ({ onDisconnect, connection, settings, hostedGameId, peer }) => {
             </div >
         </div >
     );
-};
-
-// --- SOUNDS ---
-const SOUNDS = {
-    move: new Audio('/sounds/move.mp3'),
-    capture: new Audio('/sounds/capture.mp3'),
-    notify: new Audio('/sounds/notify.mp3'),
-    check: new Audio('/sounds/check.mp3'),
-    castle: new Audio('/sounds/castle.mp3'),
-    win: new Audio('/sounds/win.mp3'),
-    lose: new Audio('/sounds/lose.mp3'),
-    draw: new Audio('/sounds/draw.mp3')
-};
-
-const playSound = (type) => {
-    try {
-        console.log(`Attempting to play sound: ${type}`);
-        if (SOUNDS[type]) {
-            SOUNDS[type].currentTime = 0;
-            const promise = SOUNDS[type].play();
-            if (promise !== undefined) {
-                promise.then(() => {
-                    console.log(`Sound ${type} played successfully`);
-                }).catch(error => {
-                    console.error(`Audio play failed for ${type}:`, error);
-                });
-            }
-        } else {
-            console.warn(`Sound ${type} not found in SOUNDS object`);
-        }
-    } catch (e) {
-        console.error("Critical error in playSound:", e);
-    }
 };
 
 export default Game;

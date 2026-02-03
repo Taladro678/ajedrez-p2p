@@ -1,42 +1,55 @@
 // Sound Manager - Gestor de reproducción de sonidos
 import { getSettings } from './settingsManager';
+import { Capacitor } from '@capacitor/core';
 
 class SoundManager {
     constructor() {
         this.sounds = {};
         this.initialized = false;
+        this.audioContext = null;
     }
 
     init() {
         if (this.initialized) return;
 
-        // Inicializar sonidos
-        this.sounds = {
-            move: new Audio('/sounds/move.mp3'),
-            capture: new Audio('/sounds/capture.mp3'),
-            check: new Audio('/sounds/check.mp3'),
-            castle: new Audio('/sounds/castle.mp3'),
-            promote: new Audio('/sounds/promote.mp3'),
-            gameEnd: new Audio('/sounds/game-end.mp3'),
-            notify: new Audio('/sounds/notify.mp3')
+        console.log('🔈 Inicializando gestor de sonidos...');
+
+        // Rutas de sonidos - Usamos rutas relativas para compatibilidad con Capacitor
+        const soundPaths = {
+            move: '/sounds/move.mp3',
+            capture: '/sounds/capture.mp3',
+            check: '/sounds/check.mp3',
+            castle: '/sounds/check.mp3', // Reutilizar o añadir uno específico
+            promote: '/sounds/move.mp3',
+            gameEnd: '/sounds/win.mp3',
+            notify: '/sounds/notify.mp3',
+            win: '/sounds/win.mp3',
+            lose: '/sounds/lose.mp3',
+            draw: '/sounds/draw.mp3'
         };
 
-        // Precargar todos los sonidos
-        Object.values(this.sounds).forEach(sound => {
-            sound.load();
+        // Inicializar objetos Audio
+        Object.entries(soundPaths).forEach(([key, path]) => {
+            try {
+                const audio = new Audio();
+                audio.src = path;
+                audio.preload = 'auto';
+                this.sounds[key] = audio;
+            } catch (e) {
+                console.error(`Error cargando sonido ${key}:`, e);
+            }
         });
 
         this.initialized = true;
     }
 
     play(soundType, customVolume = null) {
+        // En Android/Capacitor, a veces necesitamos forzar la inicialización en la primera reproducción
+        if (!this.initialized) this.init();
+
         const settings = getSettings();
-
-        // Verificar si los sonidos están habilitados
         if (!settings.sounds.enabled) return;
-
-        // Verificar si este tipo de sonido específico está habilitado
-        if (settings.sounds.types[soundType] === false) return;
+        if (settings.sounds.types && settings.sounds.types[soundType] === false) return;
 
         const sound = this.sounds[soundType];
         if (!sound) {
@@ -45,15 +58,22 @@ class SoundManager {
         }
 
         try {
-            // Establecer volumen
             const volume = customVolume !== null ? customVolume : settings.sounds.volume;
             sound.volume = Math.max(0, Math.min(1, volume));
 
             // Reiniciar y reproducir
             sound.currentTime = 0;
-            sound.play().catch(e => {
-                console.log('Audio play failed:', e.message);
-            });
+            const playPromise = sound.play();
+
+            if (playPromise !== undefined) {
+                playPromise.catch(e => {
+                    console.log('Audio play failed (interaction required?):', e.message);
+                    // Fallback: tratar de recargar si falló
+                    if (e.name === 'NotSupportedError' || e.name === 'NotAllowedError') {
+                        sound.load();
+                    }
+                });
+            }
         } catch (error) {
             console.error('Error playing sound:', error);
         }
@@ -67,12 +87,13 @@ class SoundManager {
     playPromote() { this.play('promote'); }
     playGameEnd() { this.play('gameEnd'); }
     playNotify() { this.play('notify'); }
+    playWin() { this.play('win'); }
+    playLose() { this.play('lose'); }
+    playDraw() { this.play('draw'); }
 }
 
-// Exportar instancia singleton
 export const soundManager = new SoundManager();
 
-// Inicializar en la primera interacción del usuario
 export const initSounds = () => {
     soundManager.init();
 };
