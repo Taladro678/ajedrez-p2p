@@ -346,9 +346,13 @@ const Lobby = ({ onConnect, onCreateGame, myId, user }) => {
             const activeUsers = snapshot.docs.filter(doc => {
                 const data = doc.data();
                 // Consider active if updated in last 60 seconds
-                return (now - data.timestamp) < 60000;
+                return (now - (data.timestamp || 0)) < 60000;
             });
             setOnlineUsers(activeUsers.length);
+        }, (error) => {
+            console.warn('Presence permissions missing (Firebase Rules):', error.message);
+            // Fallback: assume at least the current user is online
+            setOnlineUsers(1);
         });
 
         return () => unsubscribe();

@@ -25,6 +25,8 @@ jobs:
 
       - name: Install Dependencies
         run: npm install --legacy-peer-deps
+        env:
+          NPM_CONFIG_LEGACY_PEER_DEPS: true
 
       - name: Build App
         run: npm run build

@@ -19,9 +19,9 @@ class SoundManager {
             move: '/sounds/move.mp3',
             capture: '/sounds/capture.mp3',
             check: '/sounds/check.mp3',
-            castle: '/sounds/check.mp3', // Reutilizar o añadir uno específico
-            promote: '/sounds/move.mp3',
-            gameEnd: '/sounds/win.mp3',
+            castle: '/sounds/move.mp3', // castle.mp3 is missing
+            promote: '/sounds/move.mp3', // promote.mp3 is missing
+            gameEnd: '/sounds/notify.mp3', // game-end.mp3 is missing
             notify: '/sounds/notify.mp3',
             win: '/sounds/win.mp3',
             lose: '/sounds/lose.mp3',
