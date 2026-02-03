@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "820986888362",
+    "project_id": "ajedrezp2p",
+    "storage_bucket": "ajedrezp2p.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:820986888362:android:12243ba8bcdf3a96f990d3",
+        "android_client_info": {
+          "package_name": "com.ajedrezp2p.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "820986888362-f2otia81vv01l83gk188pa8t0ssktbg7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ajedrezp2p.app",
+            "certificate_hash": "7a739d6894a8cdea8ded1ae90a5c391aa0eb2823"
+          }
+        },
+        {
+          "client_id": "820986888362-qb8os5quelut2etnoiuv3jo0l3ov1pde.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-pV-NPC81XvN9c882uoFwWeFVdeWgGAo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "820986888362-qb8os5quelut2etnoiuv3jo0l3ov1pde.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

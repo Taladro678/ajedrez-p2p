@@ -1,0 +1,31 @@
+{
+  "appId": "com.ajedrezp2p.app",
+  "appName": "Ajedrez P2P",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "hostname": "ajedrezp2p.web.app",
+    "allowNavigation": [
+      "ajedrezp2p.web.app",
+      "*.firebaseapp.com",
+      "*.googleapis.com",
+      "*.google.com"
+    ]
+  },
+  "plugins": {
+    "GoogleAuth": {
+      "scopes": [
+        "profile",
+        "email"
+      ],
+      "serverClientId": "820986888362-qb8os5quelut2etnoiuv3jo0l3ov1pde.apps.googleusercontent.com",
+      "forceCodeForRefreshToken": true
+    },
+    "CapacitorUpdater": {
+      "appId": "CAMBIA_ESTO_POR_TU_ID_DE_CAPGO",
+      "autoUpdate": true,
+      "stats": true,
+      "resetWhenUpdateFailed": true
+    }
+  }
+}

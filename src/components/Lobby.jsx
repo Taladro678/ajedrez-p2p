@@ -9,8 +9,9 @@ import LichessSpectate from './LichessSpectate';
 import { translateText, getUserLanguage } from '../utils/translator';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import VoicePlayer from './VoicePlayer';
+import GameHistory from './GameHistory';
 
-const Lobby = ({ onConnect, myId, user }) => {
+const Lobby = ({ onConnect, onCreateGame, myId, user }) => {
     const [gameMode, setGameMode] = useState('p2p');
     const [color, setColor] = useState('white');
     const [timeControl, setTimeControl] = useState('10+0');
@@ -44,24 +45,36 @@ const Lobby = ({ onConnect, myId, user }) => {
     // Get user's country based on IP
     const [userCountry, setUserCountry] = useState(null);
     useEffect(() => {
-        fetch('https://ipapi.co/json/')
+        // Double check if we already have it to avoid redundant calls during dev
+        if (userCountry) return;
+
+        // Use ipwho.is which is very CORS friendly regarding localhost
+        fetch('https://ipwho.is/')
             .then(res => res.json())
             .then(data => {
-                console.log('Country data:', data);
                 if (data.country_code) {
                     setUserCountry(data.country_code);
-                    console.log('Country set to:', data.country_code);
                 } else {
-                    const browserLang = navigator.language || navigator.userLanguage;
-                    const countryFromLang = browserLang.split('-')[1];
-                    setUserCountry(countryFromLang || 'XX');
+                    throw new Error('No country code');
                 }
             })
-            .catch(err => {
-                console.error('Error getting country:', err);
-                const browserLang = navigator.language || navigator.userLanguage;
-                const countryFromLang = browserLang.split('-')[1];
-                setUserCountry(countryFromLang || 'XX');
+            .catch(() => {
+                // Secondary fallback
+                fetch('https://freeipapi.com/api/json')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.countryCode) {
+                            setUserCountry(data.countryCode);
+                        } else {
+                            throw new Error('No country code');
+                        }
+                    })
+                    .catch(e => {
+                        console.warn('Geolocation services failed, using browser language:', e);
+                        const browserLang = navigator.language || navigator.userLanguage;
+                        const countryFromLang = browserLang.split('-')[1];
+                        setUserCountry(countryFromLang || 'XX');
+                    });
             });
     }, []);
 
@@ -74,15 +87,17 @@ const Lobby = ({ onConnect, myId, user }) => {
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
-    const [showAbout, setShowAbout] = useState(false);
     const [showDonate, setShowDonate] = useState(false);
+    const [showAbout, setShowAbout] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
     const [publishMessage, setPublishMessage] = useState(null); // Mensaje al publicar reto
+    const [toastMessage, setToastMessage] = useState(null); // Sistema de toasts no bloqueantes
 
     // Global Chat State
     const [chatMessages, setChatMessages] = useState([]);
     const [chatInput, setChatInput] = useState('');
     const [onlineUsers, setOnlineUsers] = useState(0);
-    const [showChat, setShowChat] = useState(true);
+    const [showChat, setShowChat] = useState(() => window.innerWidth >= 768);
     const [userLang, setUserLang] = useState('en');
     const [translatedMessages, setTranslatedMessages] = useState({}); // { messageId: translatedText }
     const [translatingMessages, setTranslatingMessages] = useState(new Set()); // Set of message IDs being translated
@@ -169,21 +184,20 @@ const Lobby = ({ onConnect, myId, user }) => {
 
     // Detectar cuando alguien acepta la partida del host
     useEffect(() => {
-        if (!isHosting || !hostedGameId) return;
+        if (!hostedGameId) return;
 
         const unsubscribe = onSnapshot(doc(db, "games", hostedGameId), (docSnap) => {
             if (!docSnap.exists()) {
                 // La partida fue eliminada (alguien la aceptó)
                 // Esperar conexión entrante via PeerJS
-                setIsHosting(false);
                 setHostedGameId(null);
-                setPublishMessage('🎮 ¡Alguien aceptó tu reto! Iniciando partida...');
-                setTimeout(() => setPublishMessage(null), 3000);
+                setToastMessage('🎮 ¡Alguien aceptó tu reto! Iniciando partida...');
+                setTimeout(() => setToastMessage(null), 3000);
             }
         });
 
         return () => unsubscribe();
-    }, [isHosting, hostedGameId]);
+    }, [hostedGameId]);
 
     // Monitor connection status with real quality detection
     useEffect(() => {
@@ -288,15 +302,16 @@ const Lobby = ({ onConnect, myId, user }) => {
 
     // User Presence Tracking
     useEffect(() => {
-        if (!myId || !playerName) return;
+        if (!user || !myId || !playerName) return;
 
-        const presenceRef = doc(db, 'presence', myId);
+        const presenceRef = doc(db, 'presence', user.uid);
 
         // Set user as online
         const setPresence = async () => {
             try {
                 await setDoc(presenceRef, {
-                    userId: myId,
+                    userId: user.uid,
+                    peerId: myId, // Store PeerID for connections
                     name: playerName,
                     country: userCountry,
                     timestamp: Date.now(),
@@ -321,7 +336,7 @@ const Lobby = ({ onConnect, myId, user }) => {
             clearInterval(interval);
             deleteDoc(presenceRef).catch(err => console.error('Error removing presence:', err));
         };
-    }, [myId, playerName, userCountry]);
+    }, [user, myId, playerName, userCountry]);
 
     // Listen to online users count
     useEffect(() => {
@@ -450,13 +465,21 @@ const Lobby = ({ onConnect, myId, user }) => {
                     createdAt: Date.now()
                 });
 
-                // Mantener en lobby y mostrar mensaje
-                setIsHosting(true);
+                // Guardar el ID para el listener de aceptaciones
                 setHostedGameId(docRef.id);
-                setPublishMessage(`✅ Reto publicado! Esperando oponente...`);
-                setTimeout(() => setPublishMessage(null), 5000);
 
-                // NO llamar onConnect aquí - esperar a que alguien acepte
+                // Mostrar toast no bloqueante
+                setToastMessage('✅ Reto publicado! Puedes seguir jugando mientras esperas...');
+                setTimeout(() => setToastMessage(null), 6000);
+
+                // Guardar ajustes en App.jsx para evitar race condition y pantalla negra
+                onCreateGame({
+                    gameMode: 'p2p',
+                    ...settings,
+                    elo: 1200
+                });
+
+                // NO llamar onConnect aquí - esperar a que alguien acepte mediante el useEffect listener
             } catch (e) {
                 console.error("Error adding document: ", e);
                 alert("Error al crear partida en la nube: " + e.message);
@@ -576,19 +599,8 @@ const Lobby = ({ onConnect, myId, user }) => {
     return (
         <div className="lobby-container">
             {/* Navbar estilo Android */}
-            <div className="android-navbar" style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0.75rem 1rem',
-                marginBottom: '1rem',
-                background: 'rgba(30, 41, 59, 0.6)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: '8px',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div className="android-navbar">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: '2rem' }}>
                     <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '600', textAlign: 'left' }}>Ajedrez P2P</h1>
 
                     {/* Indicador de conexión */}
@@ -638,8 +650,8 @@ const Lobby = ({ onConnect, myId, user }) => {
                     </div>
                 </div>
 
-                {/* Menú de tres puntos - esquina derecha */}
-                <div style={{ position: 'relative' }}>
+                {/* Menú de tres puntos - esquina izquierda absoluta */}
+                <div style={{ position: 'absolute', top: '0.75rem', left: '1rem' }}>
                     <button
                         className="android-menu-button"
                         onClick={() => setShowMenu(!showMenu)}
@@ -671,7 +683,7 @@ const Lobby = ({ onConnect, myId, user }) => {
                         <div className="android-dropdown" style={{
                             position: 'absolute',
                             top: '100%',
-                            right: 0,
+                            left: '0',
                             background: 'rgba(30, 41, 59, 0.95)',
                             backdropFilter: 'blur(10px)',
                             border: '1px solid rgba(255,255,255,0.15)',
@@ -708,6 +720,32 @@ const Lobby = ({ onConnect, myId, user }) => {
                             >
                                 <span style={{ fontSize: '1.4rem' }}>⚙️</span>
                                 <span style={{ fontWeight: '500' }}>Configuración</span>
+                            </button>
+                            <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 0.8rem' }}></div>
+                            <button
+                                onClick={() => {
+                                    setShowHistory(true);
+                                    setShowMenu(false);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '1rem 1.2rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'white',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '1rem',
+                                    fontSize: '0.95rem',
+                                    transition: 'background 0.2s'
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)'}
+                                onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
+                                <span style={{ fontSize: '1.4rem' }}>📜</span>
+                                <span style={{ fontWeight: '500' }}>Historial</span>
                             </button>
                             <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 0.8rem' }}></div>
                             <button
@@ -767,8 +805,77 @@ const Lobby = ({ onConnect, myId, user }) => {
                 </div>
             </div>
             <div className="card" style={{ maxHeight: '80vh', overflowY: 'auto' }}>
-                {/* COLUMNA IZQUIERDA: Configuración */}
-                <div className="lobby-left-column">
+                {/* PRIMERO: PARTIDAS DISPONIBLES */}
+                {gameMode === 'p2p' && (
+                    <div className="game-list-section" style={{ marginBottom: '1.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                            <h3 style={{ margin: 0 }}>Partidas disponibles</h3>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <select
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value)}
+                                    style={{
+                                        padding: '0.25rem 0.4rem',
+                                        fontSize: '0.7rem',
+                                        background: '#1e293b',
+                                        color: '#f1f5f9',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '4px'
+                                    }}
+                                >
+                                    <option value="recent">Más reciente</option>
+                                    <option value="time-asc">Tiempo menor</option>
+                                    <option value="time-desc">Tiempo mayor</option>
+                                </select>
+                                <button
+                                    className="btn-secondary"
+                                    style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                                    onClick={() => window.location.reload()}
+                                >
+                                    🔄
+                                </button>
+                            </div>
+                        </div>
+                        <div className="game-list">
+                            {games.length === 0 ? (
+                                <div style={{ textAlign: 'center', color: '#666', fontStyle: 'italic', padding: '1rem', fontSize: '0.9rem' }}>
+                                    No hay partidas. ¡Sé el primero!
+                                </div>
+                            ) : (
+                                games.map(g => (
+                                    <div key={g.id} style={{
+                                        background: '#334155',
+                                        padding: '0.8rem',
+                                        borderRadius: '8px',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
+                                    }}>
+                                        <div>
+                                            {/* Bandera + Nombre */}
+                                            <div style={{ fontWeight: 'bold', color: 'white', fontSize: '0.95rem' }}>
+                                                {getCountryFlag(g.country)} {g.hostName || g.name}
+                                            </div>
+                                            <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                                                {g.timeControl} • {g.color === 'white' ? 'Juega Blancas' : 'Juega Negras'}
+                                            </div>
+                                        </div>
+                                        <button
+                                            className="btn-secondary"
+                                            onClick={() => handleJoinGame(g.id, g.hostId, g)}
+                                            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                                        >
+                                            Jugar
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* SEGUNDO: PANEL DE CONFIGURACIÓN */}
+                <div className="lobby-config-panel">
                     {/* User Info */}
                     {user ? (
                         <div className="form-group" style={{ marginBottom: '0.5rem' }}>
@@ -819,32 +926,6 @@ const Lobby = ({ onConnect, myId, user }) => {
 
                                 {showUserMenu && (
                                     <>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setShowUserMenu(false);
-                                                setShowSettings(true);
-                                            }}
-                                            style={{
-                                                padding: '0.5rem',
-                                                fontSize: '0.85rem',
-                                                textAlign: 'left',
-                                                background: 'transparent',
-                                                border: 'none',
-                                                color: '#e2e8f0',
-                                                cursor: 'pointer',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '0.5rem',
-                                                width: '100%',
-                                                borderRadius: '4px'
-                                            }}
-                                            onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
-                                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
-                                        >
-                                            ⚙️ Configuración
-                                        </button>
-                                        <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '0.2rem 0' }}></div>
                                         <button
                                             onClick={async (e) => {
                                                 e.stopPropagation();
@@ -925,354 +1006,293 @@ const Lobby = ({ onConnect, myId, user }) => {
                         </div>
                     </div>
 
-                    {!isHosting && (
-                        <>
-                            <div className="form-group">
-                                <label>Tu Color</label>
-                                <div className="color-selector">
-                                    <button className={color === 'white' ? 'active' : ''} onClick={() => setColor('white')}>Blancas</button>
-                                    <button className={color === 'random' ? 'active' : ''} onClick={() => setColor('random')}>Aleatorio</button>
-                                    <button className={color === 'black' ? 'active' : ''} onClick={() => setColor('black')}>Negras</button>
-                                </div>
+                    <>
+                        <div className="form-group">
+                            <label>Tu Color</label>
+                            <div className="color-selector">
+                                <button className={color === 'white' ? 'active' : ''} onClick={() => setColor('white')}>Blancas</button>
+                                <button className={color === 'random' ? 'active' : ''} onClick={() => setColor('random')}>Aleatorio</button>
+                                <button className={color === 'black' ? 'active' : ''} onClick={() => setColor('black')}>Negras</button>
                             </div>
+                        </div>
 
-                            {gameMode === 'computer' && (
-                                <div className="form-group">
-                                    <label>Nivel (ELO)</label>
-                                    <select value={elo} onChange={(e) => setElo(e.target.value)}>
-                                        <option value="800">Principiante (800)</option>
-                                        <option value="1200">Aficionado (1200)</option>
-                                        <option value="1600">Intermedio (1600)</option>
-                                        <option value="2000">Avanzado (2000)</option>
-                                        <option value="2500">Maestro (2500)</option>
-                                    </select>
-                                </div>
-                            )}
-
+                        {gameMode === 'computer' && (
                             <div className="form-group">
-                                <label>Tiempo</label>
-                                <select value={timeControl} onChange={(e) => setTimeControl(e.target.value)}>
-                                    <option value="1+0">Bullet (1+0)</option>
-                                    <option value="2+1">Bullet (2+1)</option>
-                                    <option value="3+0">Blitz (3+0)</option>
-                                    <option value="3+2">Blitz (3+2)</option>
-                                    <option value="5+0">Blitz (5+0)</option>
-                                    <option value="5+3">Blitz (5+3)</option>
-                                    <option value="10+0">Rápida (10+0)</option>
-                                    <option value="10+5">Rápida (10+5)</option>
-                                    <option value="15+10">Rápida (15+10)</option>
-                                    <option value="30+0">Clásica (30+0)</option>
-                                    <option value="30+20">Clásica (30+20)</option>
+                                <label>Nivel (ELO)</label>
+                                <select value={elo} onChange={(e) => setElo(e.target.value)}>
+                                    <option value="800">Principiante (800)</option>
+                                    <option value="1200">Aficionado (1200)</option>
+                                    <option value="1600">Intermedio (1600)</option>
+                                    <option value="2000">Avanzado (2000)</option>
+                                    <option value="2500">Maestro (2500)</option>
                                 </select>
-
-                                {timeControl === 'custom' && (
-                                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ fontSize: '0.65rem' }}>Minutos</label>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                max="180"
-                                                value={customTime}
-                                                onChange={(e) => setCustomTime(Math.max(1, Math.min(180, parseInt(e.target.value) || 1)))}
-                                                style={{ width: '100%', padding: '0.4rem' }}
-                                            />
-                                        </div>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ fontSize: '0.65rem' }}>Incremento (seg)</label>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max="60"
-                                                value={customInc}
-                                                onChange={(e) => setCustomInc(Math.max(0, Math.min(60, parseInt(e.target.value) || 0)))}
-                                                style={{ width: '100%', padding: '0.4rem' }}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
                             </div>
+                        )}
 
-                            {gameMode === 'lichess' && !lichessToken ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px' }}>
-                                    <div style={{ fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.4' }}>
-                                        <strong>Configuración Inicial:</strong><br />
-                                        Lichess requiere un token personal para jugar desde apps externas.
-                                    </div>
+                        <div className="form-group">
+                            <label>Tiempo</label>
+                            <select value={timeControl} onChange={(e) => setTimeControl(e.target.value)}>
+                                <option value="1+0">Bullet (1+0)</option>
+                                <option value="2+1">Bullet (2+1)</option>
+                                <option value="3+0">Blitz (3+0)</option>
+                                <option value="3+2">Blitz (3+2)</option>
+                                <option value="5+0">Blitz (5+0)</option>
+                                <option value="5+3">Blitz (5+3)</option>
+                                <option value="10+0">Rápida (10+0)</option>
+                                <option value="10+5">Rápida (10+5)</option>
+                                <option value="15+10">Rápida (15+10)</option>
+                                <option value="30+0">Clásica (30+0)</option>
+                                <option value="30+20">Clásica (30+20)</option>
+                            </select>
 
-                                    <input
-                                        type="text"
-                                        placeholder="Pega tu token aquí (lip_...)"
-                                        id="lichess-token-input"
-                                        style={{
-                                            padding: '0.8rem',
-                                            background: '#0f172a',
-                                            border: '1px solid #334155',
-                                            color: 'white',
-                                            borderRadius: '6px',
-                                            fontSize: '0.9rem'
-                                        }}
-                                    />
-
-                                    <button
-                                        className="btn-primary"
-                                        onClick={() => {
-                                            const token = document.getElementById('lichess-token-input').value.trim();
-                                            if (token) {
-                                                localStorage.setItem('lichess_token', token);
-                                                window.location.reload();
-                                            } else {
-                                                alert("Por favor, pega el token primero.");
-                                            }
-                                        }}
-                                    >
-                                        Guardar y Conectar
-                                    </button>
-
-                                    <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '0.8rem', borderRadius: '6px', fontSize: '0.75rem', color: '#94a3b8' }}>
-                                        <strong>¿Cómo obtener el token?</strong>
-                                        <ol style={{ margin: '0.5rem 0 0 1.2rem', padding: 0 }}>
-                                            <li>Ve a <a href="https://lichess.org/account/oauth/token/create" target="_blank" style={{ color: '#60a5fa', textDecoration: 'underline' }}>Lichess Tokens</a></li>
-                                            <li>Activa todos los permisos de <strong>"Board" (Tablero)</strong>.</li>
-                                            <li>Dale al botón azul "Submit".</li>
-                                            <li>Copia el código y pégalo arriba.</li>
-                                        </ol>
-                                        <div style={{ marginTop: '0.5rem', fontStyle: 'italic', opacity: 0.8 }}>
-                                            *Solo necesitas hacer esto una vez.
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : null}
-
-                            {/* Lichess Tabs */}
-                            {gameMode === 'lichess' && lichessToken && (
-                                <div style={{ marginTop: '1rem' }}>
-                                    {/* Tab Navigation */}
-                                    <div style={{
-                                        display: 'flex',
-                                        gap: '0.5rem',
-                                        marginBottom: '1rem',
-                                        borderBottom: '1px solid rgba(255,255,255,0.1)',
-                                        paddingBottom: '0.5rem'
-                                    }}>
-                                        <button
-                                            onClick={() => setLichessTab('create')}
-                                            style={{
-                                                padding: '0.5rem 1rem',
-                                                background: lichessTab === 'create' ? '#3b82f6' : 'transparent',
-                                                border: 'none',
-                                                borderRadius: '6px',
-                                                color: 'white',
-                                                cursor: 'pointer',
-                                                fontSize: '0.9rem'
-                                            }}
-                                        >
-                                            Crear Partida
-                                        </button>
-                                        <button
-                                            onClick={() => setLichessTab('challenges')}
-                                            style={{
-                                                padding: '0.5rem 1rem',
-                                                background: lichessTab === 'challenges' ? '#3b82f6' : 'transparent',
-                                                border: 'none',
-                                                borderRadius: '6px',
-                                                color: 'white',
-                                                cursor: 'pointer',
-                                                fontSize: '0.9rem'
-                                            }}
-                                        >
-                                            Retos
-                                        </button>
-                                        <button
-                                            onClick={() => setLichessTab('spectate')}
-                                            style={{
-                                                padding: '0.5rem 1rem',
-                                                background: lichessTab === 'spectate' ? '#3b82f6' : 'transparent',
-                                                border: 'none',
-                                                borderRadius: '6px',
-                                                color: 'white',
-                                                cursor: 'pointer',
-                                                fontSize: '0.9rem'
-                                            }}
-                                        >
-                                            Observar
-                                        </button>
-                                    </div>
-
-                                    {/* Tab Content */}
-                                    {lichessTab === 'create' && (
-                                        <div>
-                                            <button
-                                                className="btn-primary"
-                                                onClick={() => {
-                                                    if (isSearchingLichess) {
-                                                        setIsSearchingLichess(false);
-                                                        window.location.reload(); // Reload to cancel stream
-                                                    } else {
-                                                        handleCreateGame();
-                                                    }
-                                                }}
-                                                style={{
-                                                    width: '100%',
-                                                    marginBottom: '0.75rem',
-                                                    background: isSearchingLichess ? '#ef4444' : undefined
-                                                }}
-                                            >
-                                                {isSearchingLichess ? 'Cancelar Búsqueda' : 'Emparejar Partida'}
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    if (confirm('¿Quieres cambiar tu token de Lichess?')) {
-                                                        localStorage.removeItem('lichess_token');
-                                                        window.location.reload();
-                                                    }
-                                                }}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '0.5rem',
-                                                    background: 'transparent',
-                                                    border: '1px solid rgba(255,255,255,0.2)',
-                                                    borderRadius: '6px',
-                                                    color: '#94a3b8',
-                                                    cursor: 'pointer',
-                                                    fontSize: '0.85rem'
-                                                }}
-                                            >
-                                                Cambiar Token
-                                            </button>
-                                        </div>
-                                    )}
-                                    {lichessTab === 'challenges' && (
-                                        <LichessChallenges
-                                            onAccept={(gameId) => {
-                                                onConnect('lichess:' + gameId, settings);
-                                            }}
+                            {timeControl === 'custom' && (
+                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ fontSize: '0.65rem' }}>Minutos</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="180"
+                                            value={customTime}
+                                            onChange={(e) => setCustomTime(Math.max(1, Math.min(180, parseInt(e.target.value) || 1)))}
+                                            style={{ width: '100%', padding: '0.4rem' }}
                                         />
-                                    )}
-                                    {lichessTab === 'spectate' && (
-                                        <LichessSpectate
-                                            onWatch={(gameId) => {
-                                                onConnect('lichess:' + gameId, { ...settings, spectator: true });
-                                            }}
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ fontSize: '0.65rem' }}>Incremento (seg)</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="60"
+                                            value={customInc}
+                                            onChange={(e) => setCustomInc(Math.max(0, Math.min(60, parseInt(e.target.value) || 0)))}
+                                            style={{ width: '100%', padding: '0.4rem' }}
                                         />
-                                    )}
+                                    </div>
                                 </div>
                             )}
+                        </div>
 
-                            {gameMode !== 'lichess' && (
+                        {gameMode === 'lichess' && !lichessToken ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px' }}>
+                                <div style={{ fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.4' }}>
+                                    <strong>Configuración Inicial:</strong><br />
+                                    Lichess requiere un token personal para jugar desde apps externas.
+                                </div>
+
+                                <input
+                                    type="text"
+                                    placeholder="Pega tu token aquí (lip_...)"
+                                    id="lichess-token-input"
+                                    style={{
+                                        padding: '0.8rem',
+                                        background: '#0f172a',
+                                        border: '1px solid #334155',
+                                        color: 'white',
+                                        borderRadius: '6px',
+                                        fontSize: '0.9rem'
+                                    }}
+                                />
+
                                 <button
                                     className="btn-primary"
-                                    onClick={handleCreateGame}
-                                    disabled={(gameMode === 'p2p' && !myId) || (gameMode === 'lichess' && isSearchingLichess)}
+                                    onClick={() => {
+                                        const token = document.getElementById('lichess-token-input').value.trim();
+                                        if (token) {
+                                            localStorage.setItem('lichess_token', token);
+                                            window.location.reload();
+                                        } else {
+                                            alert("Por favor, pega el token primero.");
+                                        }
+                                    }}
                                 >
-                                    {gameMode === 'computer' ? 'Jugar contra Stockfish' :
-                                        gameMode === 'lichess' ? (isSearchingLichess ? 'Buscando Oponente...' : 'Buscar en Lichess (10+0)') :
-                                            'Crear Partida Pública'}
+                                    Guardar y Conectar
                                 </button>
-                            )}
-                        </>
-                    )}
 
-                    {isHosting && (
-                        <div style={{ textAlign: 'center', padding: '1rem' }}>
-                            <div className="spinner" style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
-                            <h3>Esperando oponente...</h3>
-                            <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Tu partida es visible mundialmente.</p>
-                            <button className="btn-secondary" onClick={cancelHosting} style={{ marginTop: '1rem' }}>
-                                Cancelar
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Mensaje de confirmación al publicar reto */}
-                    {publishMessage && (
-                        <div style={{
-                            background: 'rgba(34, 197, 94, 0.2)',
-                            border: '1px solid rgba(34, 197, 94, 0.5)',
-                            borderRadius: '8px',
-                            padding: '1rem',
-                            marginBottom: '1rem',
-                            textAlign: 'center',
-                            color: '#22c55e',
-                            fontWeight: '500',
-                            animation: 'slideIn 0.3s ease-out'
-                        }}>
-                            {publishMessage}
-                        </div>
-                    )}
-                </div>
-
-                {/* COLUMNA DERECHA: Lista de Partidas */}
-                <div className="lobby-right-column">
-                    {gameMode === 'p2p' && !isHosting && (
-                        <div className="game-list-section">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                <h3 style={{ margin: 0 }}>Partidas disponibles</h3>
-                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                    <select
-                                        value={sortBy}
-                                        onChange={(e) => setSortBy(e.target.value)}
-                                        style={{
-                                            padding: '0.25rem 0.4rem',
-                                            fontSize: '0.7rem',
-                                            background: '#1e293b',
-                                            color: '#f1f5f9',
-                                            border: '1px solid rgba(255,255,255,0.1)',
-                                            borderRadius: '4px'
-                                        }}
-                                    >
-                                        <option value="recent">Más reciente</option>
-                                        <option value="time-asc">Tiempo menor</option>
-                                        <option value="time-desc">Tiempo mayor</option>
-                                    </select>
-                                    <button
-                                        className="btn-secondary"
-                                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
-                                        onClick={() => window.location.reload()}
-                                    >
-                                        🔄
-                                    </button>
+                                <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '0.8rem', borderRadius: '6px', fontSize: '0.75rem', color: '#94a3b8' }}>
+                                    <strong>¿Cómo obtener el token?</strong>
+                                    <ol style={{ margin: '0.5rem 0 0 1.2rem', padding: 0 }}>
+                                        <li>Ve a <a href="https://lichess.org/account/oauth/token/create" target="_blank" style={{ color: '#60a5fa', textDecoration: 'underline' }}>Lichess Tokens</a></li>
+                                        <li>Activa todos los permisos de <strong>"Board" (Tablero)</strong>.</li>
+                                        <li>Dale al botón azul "Submit".</li>
+                                        <li>Copia el código y pégalo arriba.</li>
+                                    </ol>
+                                    <div style={{ marginTop: '0.5rem', fontStyle: 'italic', opacity: 0.8 }}>
+                                        *Solo necesitas hacer esto una vez.
+                                    </div>
                                 </div>
                             </div>
-                            <div className="game-list">
-                                {games.length === 0 ? (
-                                    <div style={{ textAlign: 'center', color: '#666', fontStyle: 'italic', padding: '1rem', fontSize: '0.9rem' }}>
-                                        No hay partidas. ¡Sé el primero!
+                        ) : null}
+
+                        {/* Lichess Tabs */}
+                        {gameMode === 'lichess' && lichessToken && (
+                            <div style={{ marginTop: '1rem' }}>
+                                {/* Tab Navigation */}
+                                <div style={{
+                                    display: 'flex',
+                                    gap: '0.5rem',
+                                    marginBottom: '1rem',
+                                    borderBottom: '1px solid rgba(255,255,255,0.1)',
+                                    paddingBottom: '0.5rem'
+                                }}>
+                                    <button
+                                        onClick={() => setLichessTab('create')}
+                                        style={{
+                                            padding: '0.5rem 1rem',
+                                            background: lichessTab === 'create' ? '#3b82f6' : 'transparent',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            color: 'white',
+                                            cursor: 'pointer',
+                                            fontSize: '0.9rem'
+                                        }}
+                                    >
+                                        Crear Partida
+                                    </button>
+                                    <button
+                                        onClick={() => setLichessTab('challenges')}
+                                        style={{
+                                            padding: '0.5rem 1rem',
+                                            background: lichessTab === 'challenges' ? '#3b82f6' : 'transparent',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            color: 'white',
+                                            cursor: 'pointer',
+                                            fontSize: '0.9rem'
+                                        }}
+                                    >
+                                        Retos
+                                    </button>
+                                    <button
+                                        onClick={() => setLichessTab('spectate')}
+                                        style={{
+                                            padding: '0.5rem 1rem',
+                                            background: lichessTab === 'spectate' ? '#3b82f6' : 'transparent',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            color: 'white',
+                                            cursor: 'pointer',
+                                            fontSize: '0.9rem'
+                                        }}
+                                    >
+                                        Observar
+                                    </button>
+                                </div>
+
+                                {/* Tab Content */}
+                                {lichessTab === 'create' && (
+                                    <div>
+                                        <button
+                                            className="btn-primary"
+                                            onClick={() => {
+                                                if (isSearchingLichess) {
+                                                    setIsSearchingLichess(false);
+                                                    window.location.reload(); // Reload to cancel stream
+                                                } else {
+                                                    handleCreateGame();
+                                                }
+                                            }}
+                                            style={{
+                                                width: '100%',
+                                                marginBottom: '0.75rem',
+                                                background: isSearchingLichess ? '#ef4444' : undefined
+                                            }}
+                                        >
+                                            {isSearchingLichess ? 'Cancelar Búsqueda' : 'Emparejar Partida'}
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                if (confirm('¿Quieres cambiar tu token de Lichess?')) {
+                                                    localStorage.removeItem('lichess_token');
+                                                    window.location.reload();
+                                                }
+                                            }}
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.5rem',
+                                                background: 'transparent',
+                                                border: '1px solid rgba(255,255,255,0.2)',
+                                                borderRadius: '6px',
+                                                color: '#94a3b8',
+                                                cursor: 'pointer',
+                                                fontSize: '0.85rem'
+                                            }}
+                                        >
+                                            Cambiar Token
+                                        </button>
                                     </div>
-                                ) : (
-                                    games.map(g => (
-                                        <div key={g.id} style={{
-                                            background: '#334155',
-                                            padding: '0.8rem',
-                                            borderRadius: '8px',
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center'
-                                        }}>
-                                            <div>
-                                                {/* Bandera + Nombre */}
-                                                <div style={{ fontWeight: 'bold', color: 'white', fontSize: '0.95rem' }}>
-                                                    {getCountryFlag(g.country)} {g.hostName || g.name}
-                                                </div>
-                                                <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                                                    {g.timeControl} • {g.color === 'white' ? 'Juega Blancas' : 'Juega Negras'}
-                                                </div>
-                                            </div>
-                                            <button
-                                                className="btn-secondary"
-                                                onClick={() => handleJoinGame(g.id, g.hostId, g)}
-                                                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-                                            >
-                                                Jugar
-                                            </button>
-                                        </div>
-                                    ))
+                                )}
+                                {lichessTab === 'challenges' && (
+                                    <LichessChallenges
+                                        onAccept={(gameId) => {
+                                            onConnect('lichess:' + gameId, settings);
+                                        }}
+                                    />
+                                )}
+                                {lichessTab === 'spectate' && (
+                                    <LichessSpectate
+                                        onWatch={(gameId) => {
+                                            onConnect('lichess:' + gameId, { ...settings, spectator: true });
+                                        }}
+                                    />
                                 )}
                             </div>
-                        </div>
-                    )}
+                        )}
+
+                        {gameMode !== 'lichess' && (
+                            <button
+                                className="btn-primary"
+                                onClick={handleCreateGame}
+                                disabled={(gameMode === 'p2p' && !myId) || (gameMode === 'lichess' && isSearchingLichess)}
+                            >
+                                {gameMode === 'computer' ? 'Jugar contra Stockfish' :
+                                    gameMode === 'lichess' ? (isSearchingLichess ? 'Buscando Oponente...' : 'Buscar en Lichess (10+0)') :
+                                        'Crear Partida Pública'}
+                            </button>
+                        )}
+                    </>
                 </div>
             </div>
+
+            {/* Toast de notificación (no bloqueante) */}
+            {toastMessage && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '100px',
+                    right: '20px',
+                    background: 'rgba(34, 197, 94, 0.95)',
+                    color: 'white',
+                    padding: '1rem 1.5rem',
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+                    zIndex: 1000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    animation: 'slideInRight 0.3s ease-out',
+                    maxWidth: '350px',
+                    border: '1px solid rgba(255, 255, 255, 0.2)'
+                }}>
+                    <span style={{ fontSize: '1.5rem' }}>✅</span>
+                    <div style={{ flex: 1 }}>
+                        <strong>{toastMessage}</strong>
+                    </div>
+                    <button
+                        onClick={() => setToastMessage(null)}
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'white',
+                            fontSize: '1.5rem',
+                            cursor: 'pointer',
+                            padding: 0,
+                            lineHeight: 1
+                        }}
+                    >
+                        ×
+                    </button>
+                </div>
+            )}
 
             {/* GLOBAL CHAT */}
             {showChat && (
@@ -1541,6 +1561,19 @@ const Lobby = ({ onConnect, myId, user }) => {
                     </div>
                 </div>
             )}
+
+            {/* Modal Historial */}
+            {showHistory && <GameHistory onClose={() => setShowHistory(false)} onAnalyze={(pgn, playerColor) => {
+                setShowHistory(false);
+                onConnect('COMPUTER', {
+                    gameMode: 'computer',
+                    color: playerColor || 'white',
+                    timeControl: '10+0',
+                    elo: 1600,
+                    pgn: pgn,
+                    isAnalysis: true
+                });
+            }} />}
 
             {/* Modal Donar */}
             {showDonate && (

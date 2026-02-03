@@ -25,11 +25,28 @@ export const googleDriveService = {
     },
 
     /**
+     * Sync full app data (History + Settings) to Drive
+     */
+    async syncAppData(history, settings) {
+        const token = getAccessToken();
+        if (!token) return null;
+
+        const data = {
+            history,
+            settings,
+            timestamp: Date.now(),
+            version: '1.5'
+        };
+
+        return await this.uploadBackup(data);
+    },
+
+    /**
      * Create or Update backup file
      */
     async uploadBackup(data) {
         const token = getAccessToken();
-        if (!token) throw new Error('No authenticated');
+        if (!token) throw new Error('No autenticado con Google');
 
         const fileContent = JSON.stringify(data);
         const existingFile = await this.findBackupFile();
@@ -44,24 +61,20 @@ export const googleDriveService = {
         form.append('file', new Blob([fileContent], { type: 'application/json' }));
 
         if (existingFile) {
-            // UPDATE
-            // For simple update of content only, we might use media upload, but multipart is safe for metadata too
-            // Using PATCH on the file ID
             const response = await fetch(`${GOOGLE_DRIVE_UPLOAD_API}/files/${existingFile.id}?uploadType=multipart`, {
                 method: 'PATCH',
                 headers: { Authorization: `Bearer ${token}` },
                 body: form
             });
-            if (!response.ok) throw new Error('Error updating backup');
+            if (!response.ok) throw new Error('Error al actualizar copia en Drive');
             return await response.json();
         } else {
-            // CREATE
             const response = await fetch(`${GOOGLE_DRIVE_UPLOAD_API}/files?uploadType=multipart`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}` },
                 body: form
             });
-            if (!response.ok) throw new Error('Error creating backup');
+            if (!response.ok) throw new Error('Error al crear copia en Drive');
             return await response.json();
         }
     },

@@ -324,8 +324,20 @@ select option {
 
 /* --- ANDROID NAVBAR STYLES --- */
 .android-navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    background: rgba(30, 41, 59, 0.6);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    position: relative;
+    width: 100%;
+    max-width: 800px;
 }
 
 .android-menu-button {
@@ -333,28 +345,9 @@ select option {
     user-select: none;
 }
 
-.android-menu-button:active {
-    transform: scale(0.95);
-}
-
-.android-dropdown {
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-}
-
-.android-dropdown button {
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
-    text-transform: none;
-    letter-spacing: normal;
-    font-weight: 500;
-}
-
-.android-dropdown button:active {
-    transform: scale(0.98);
-}
-
 /* --- LOBBY RESPONSIVE LAYOUT --- */
+
+
 .lobby-container {
     display: flex;
     flex-direction: column;
@@ -374,7 +367,7 @@ select option {
     color: var(--on-background);
 }
 
-/* DESKTOP: 2 columnas lado a lado */
+/* DESKTOP: Layout vertical con partidas arriba */
 .card {
     background: var(--surface-color);
     padding: 1.5rem;
@@ -382,8 +375,8 @@ select option {
     box-shadow: var(--elevation-4);
     width: 100%;
     max-width: 800px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 1.5rem;
 }
 
@@ -673,5 +666,39 @@ label {
     .local-video-container {
         width: 60px;
         height: 45px;
+    }
+}
+
+/* --- LOBBY RESPONSIVE LAYOUT (Moved to end for precedence) --- */
+@media (max-width: 768px) {
+    .android-navbar {
+        width: 100vw;
+        margin-left: calc(-50vw + 50%);
+        margin-right: calc(-50vw + 50%);
+        border-radius: 0;
+        margin-bottom: 0;
+        border-left: none;
+        border-right: none;
+        border-top: none;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: rgba(15, 23, 42, 0.95);
+        padding-left: 1rem;
+        /* Ensure consistent padding for content */
+        padding-right: 1rem;
+    }
+
+    .lobby-container {
+        padding: 0 !important;
+        overflow-x: hidden;
+        /* Prevent horizontal scroll from 100vw hack if needed */
+    }
+
+    .card {
+        border-radius: 0;
+        box-shadow: none;
+        margin-top: 1rem;
+        /* Add spacing below navbar */
     }
 }

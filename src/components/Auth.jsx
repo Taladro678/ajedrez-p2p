@@ -6,21 +6,39 @@ import {
     signInWithRedirect,
     getRedirectResult,
     signOut,
-    onAuthStateChanged
+    onAuthStateChanged,
+    signInWithCredential
 } from 'firebase/auth';
+import { Capacitor } from '@capacitor/core';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 const Auth = () => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // Safety timeout: if Firebase doesn't respond in 5s, show login button anyway
+        const timer = setTimeout(() => {
+            if (loading) {
+                console.warn('Auth state loading timed out. Forcing UI display.');
+                setLoading(false);
+            }
+        }, 5000);
+
+
+
         // Listen for auth state changes
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            console.log('Auth state changed:', currentUser?.displayName || 'No user');
             setUser(currentUser);
             setLoading(false);
+            clearTimeout(timer);
         });
 
-        return () => unsubscribe();
+        return () => {
+            unsubscribe();
+            clearTimeout(timer);
+        };
     }, []);
 
     // Check for redirect result on component mount
@@ -47,38 +65,70 @@ const Auth = () => {
         checkRedirectResult();
     }, []);
 
+    const isCapacitor = () => {
+        return window.Capacitor?.isNativePlatform() || window.webkit?.messageHandlers?.bridge !== undefined || window.androidObj !== undefined;
+    };
+
     const isMobile = () => {
         return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     };
 
     const handleGoogleSignIn = async () => {
-        const provider = new GoogleAuthProvider();
-        // Request access to create/edit files created by this app
-        provider.addScope('https://www.googleapis.com/auth/drive.file');
-
         try {
-            if (isMobile()) {
-                // Use redirect for mobile devices
-                console.log('Using redirect for mobile device');
-                await signInWithRedirect(auth, provider);
-            } else {
-                // Use popup for desktop
-                console.log('Using popup for desktop');
-                const result = await signInWithPopup(auth, provider);
+            // ANDROID/IOS: Use native Google Auth plugin
+            if (Capacitor.isNativePlatform()) {
+                console.log('📱 Native: Using GoogleAuth plugin');
 
-                // Get the Google Access Token
-                const credential = GoogleAuthProvider.credentialFromResult(result);
-                const token = credential.accessToken;
-                if (token) {
-                    sessionStorage.setItem('google_access_token', token);
+                // Initialize with the EXACT Web Client ID from google-services.json
+                try {
+                    await GoogleAuth.initialize({
+                        clientId: '820986888362-qb8os5quelut2etnoiuv3jo0l3ov1pde.apps.googleusercontent.com',
+                        scopes: ['profile', 'email'],
+                        grantOfflineAccess: true,
+                    });
+                    console.log('✅ GoogleAuth plugin initialized');
+                } catch (initError) {
+                    console.warn('GoogleAuth already initialized or init failed:', initError);
                 }
 
-                console.log('Signed in:', result.user.displayName);
+                // Sign in with native plugin
+                const googleUser = await GoogleAuth.signIn();
+                console.log('✅ Native signin successful:', googleUser.email);
+
+                // Create Firebase cred from ID token
+                const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
+
+                // Sign into Firebase
+                const result = await signInWithCredential(auth, credential);
+                console.log('✅ Firebase signin successful:', result.user.displayName);
+
+                if (googleUser.authentication.accessToken) {
+                    sessionStorage.setItem('google_access_token', googleUser.authentication.accessToken);
+                }
+            }
+            // WEB: Use Firebase popup
+            else {
+                console.log('🌐 Web: Using Firebase popup');
+                const provider = new GoogleAuthProvider();
+                provider.addScope('https://www.googleapis.com/auth/drive.file');
+                provider.setCustomParameters({
+                    prompt: 'select_account'
+                });
+
+                const result = await signInWithPopup(auth, provider);
+                const credential = GoogleAuthProvider.credentialFromResult(result);
+                if (credential?.accessToken) {
+                    sessionStorage.setItem('google_access_token', credential.accessToken);
+                }
+                console.log('✅ Login success:', result.user.displayName);
             }
         } catch (error) {
-            console.error('Error signing in:', error);
+            console.error('❌ Signin error:', error);
+            console.error('Error code:', error.code);
+            console.error('Error message:', error.message);
+
             if (error.code !== 'auth/popup-closed-by-user') {
-                alert('Error al iniciar sesión: ' + error.message);
+                alert(`Error: ${error.message}\nCode: ${error.code}`);
             }
         }
     };

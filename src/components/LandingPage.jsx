@@ -48,7 +48,7 @@ const LandingPage = ({ onGuestPlay }) => {
                 <div className="feature-card">
                     <div className="feature-icon">📹</div>
                     <h3>Video Chat</h3>
-                    <p>Próximamente: Mira y habla con tu oponente mientras juegas. La experiencia social definitiva.</p>
+                    <p>Mira y habla con tu oponente mientras juegas.</p>
                 </div>
             </section>
 

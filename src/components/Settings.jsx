@@ -20,10 +20,12 @@ const Settings = ({ onClose }) => {
     const handleUploadBackup = async () => {
         setBackupStatus('loading');
         try {
+            const history = JSON.parse(localStorage.getItem('chess_p2p_history') || '[]');
             const backupData = {
                 settings: settings,
+                history: history,
                 timestamp: Date.now(),
-                version: '1.0'
+                version: '1.5'
             };
             await googleDriveService.uploadBackup(backupData);
             setBackupStatus('success');
@@ -39,12 +41,15 @@ const Settings = ({ onClose }) => {
         setBackupStatus('loading');
         try {
             const data = await googleDriveService.restoreBackup();
-            if (data && data.settings) {
-                // Update settings using the context method which merges and saves
-                updateSettings(data.settings);
+            if (data) {
+                if (data.settings) updateSettings(data.settings);
+                if (data.history) {
+                    localStorage.setItem('chess_p2p_history', JSON.stringify(data.history));
+                }
 
                 setBackupStatus('success');
                 setTimeout(() => setBackupStatus(null), 3000);
+                alert('Historial y configuración restaurados correctamente.');
             }
         } catch (error) {
             console.error(error);
@@ -374,9 +379,25 @@ const Settings = ({ onClose }) => {
                                 {backupStatus === 'error' && <p style={{ marginTop: '1rem', color: '#ef4444' }}>❌ Error: {errorMessage}</p>}
 
                                 {!sessionStorage.getItem('google_access_token') && (
-                                    <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#eab308' }}>
-                                        ⚠️ Debes iniciar sesión con Google para usar esta función.
-                                    </p>
+                                    <div style={{
+                                        marginTop: '1.5rem',
+                                        padding: '1rem',
+                                        background: 'rgba(234, 179, 8, 0.1)',
+                                        border: '1px solid rgba(234, 179, 8, 0.3)',
+                                        borderRadius: '8px',
+                                        textAlign: 'left'
+                                    }}>
+                                        <p style={{ margin: 0, fontSize: '0.9rem', color: '#eab308', display: 'flex', gap: '8px' }}>
+                                            <span>⚠️</span>
+                                            <strong>Atención:</strong> Tu historial y preferencias se guardan solo en este navegador.
+                                        </p>
+                                        <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: '#aaa' }}>
+                                            Si cambias de dispositivo, desinstalas la app o borras los datos del navegador, <strong>perderás todo tu progreso</strong>.
+                                        </p>
+                                        <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: '#aaa' }}>
+                                            Conecta tu Google Drive para mantener tus partidas sincronizadas.
+                                        </p>
+                                    </div>
                                 )}
                             </div>
 

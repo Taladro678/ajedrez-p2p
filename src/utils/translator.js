@@ -1,5 +1,5 @@
-// Translation service using LibreTranslate API
-const LIBRETRANSLATE_API = 'https://libretranslate.com/translate';
+// Translation service using MyMemory API (Free, no key required for small usage)
+const MYMEMORY_API = 'https://api.mymemory.translated.net/get';
 
 // Cache for translations to avoid repeated API calls
 const translationCache = new Map();
@@ -14,15 +14,25 @@ export const getUserLanguage = () => {
 };
 
 /**
- * Translate text using LibreTranslate API
+ * Translate text using MyMemory API
  * @param {string} text - Text to translate
  * @param {string} targetLang - Target language code (e.g., 'en', 'es', 'fr')
  * @param {string} sourceLang - Source language code (optional, 'auto' for auto-detect)
  * @returns {Promise<string>} Translated text
  */
 export const translateText = async (text, targetLang, sourceLang = 'auto') => {
+    // MyMemory uses 'source|target' format, e.g., 'en|es'
+    // If source is auto, we can just supply target, but MyMemory prefers pairs.
+    // However, MyMemory auto-detects if you don't specify perfectly, but strict pairing is better.
+    // Let's assume auto detection for source if not provided.
+
+    // Normalize source (MyMemory doesn't use 'auto' keyword explicitly in pair, usually just text)
+    // But we can try just sending the pair.
+
+    const langPair = `${sourceLang === 'auto' ? '' : sourceLang}|${targetLang}`;
+
     // Create cache key
-    const cacheKey = `${text}_${sourceLang}_${targetLang}`;
+    const cacheKey = `${text}_${langPair}`;
 
     // Check cache first
     if (translationCache.has(cacheKey)) {
@@ -30,25 +40,19 @@ export const translateText = async (text, targetLang, sourceLang = 'auto') => {
     }
 
     try {
-        const response = await fetch(LIBRETRANSLATE_API, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                q: text,
-                source: sourceLang,
-                target: targetLang,
-                format: 'text'
-            })
-        });
+        const response = await fetch(`${MYMEMORY_API}?q=${encodeURIComponent(text)}&langpair=${sourceLang === 'auto' ? 'Autodetect' : sourceLang}|${targetLang}`);
 
         if (!response.ok) {
             throw new Error(`Translation failed: ${response.statusText}`);
         }
 
         const data = await response.json();
-        const translatedText = data.translatedText;
+
+        if (data.responseStatus !== 200) {
+            throw new Error(data.responseDetails);
+        }
+
+        const translatedText = data.responseData.translatedText;
 
         // Cache the translation
         translationCache.set(cacheKey, translatedText);
@@ -56,7 +60,7 @@ export const translateText = async (text, targetLang, sourceLang = 'auto') => {
         return translatedText;
     } catch (error) {
         console.error('Translation error:', error);
-        throw error;
+        return text; // Fallback to original text on error
     }
 };
 

@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Peer from 'peerjs'
+import { Capacitor } from '@capacitor/core'
+import { CapacitorUpdater } from '@capgo/capacitor-updater'
 import Lobby from './components/Lobby'
 import Game from './components/Game'
 import Auth from './components/Auth'
 import LandingPage from './components/LandingPage'
 import { auth } from './firebase'
-import { onAuthStateChanged } from 'firebase/auth'
+import { onAuthStateChanged, signInAnonymously } from 'firebase/auth'
 import { SettingsProvider } from './contexts/SettingsContext'
 import { initSounds } from './utils/soundManager'
 import './index.css'
@@ -141,25 +143,65 @@ function App() {
     }
   }, [myId, isConnected, handleConnect]);
 
+  // OTA Updates logic
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      console.log('🚀 Native platform detected, initializing OTA updates');
+
+      // Notify Capgo that the app is ready (highly recommended to avoid rollbacks)
+      CapacitorUpdater.notifyAppReady();
+
+      // Listen for update events
+      CapacitorUpdater.addListener('updateAvailable', (info) => {
+        console.log('✨ New update available!', info);
+      });
+
+      CapacitorUpdater.addListener('downloadProgress', (status) => {
+        console.log(`📥 Downloading update: ${status.percent}%`);
+      });
+
+      CapacitorUpdater.addListener('updateInstalled', () => {
+        console.log('✅ Update installed! It will be applied on next restart.');
+      });
+    }
+  }, []);
+
 
 
   const handleDisconnect = () => {
+    // 1. Clear storage FIRST to prevent auto-reconnect loops
+    sessionStorage.removeItem('gameSettings');
+    sessionStorage.removeItem('opponentId');
+
+    // 2. Close connection
     if (conn) {
       conn.close();
     }
+
+    // 3. Reset state
     setIsConnected(false);
     setConn(null);
     setGameSettings(null);
     setHostedGameId(null);
-    sessionStorage.removeItem('gameSettings');
-    sessionStorage.removeItem('opponentId');
+  }
+
+  const handleGuestPlay = async () => {
+    try {
+      await signInAnonymously(auth);
+      setIsGuest(true);
+      console.log('✅ Guest signed in anonymously');
+    } catch (error) {
+      console.error('Error signing in anonymously:', error);
+      // Still allow guest play even if Firebase auth fails
+      setIsGuest(true);
+    }
   }
 
   return (
     <SettingsProvider>
       <div className="app-main">
         {(!user && !isGuest) ? (
-          <LandingPage onGuestPlay={() => setIsGuest(true)} />
+          <LandingPage onGuestPlay={handleGuestPlay} />
         ) : (
           <>
             {isConnected ? (
@@ -172,7 +214,16 @@ function App() {
                 peer={peerRef.current}
               />
             ) : (
-              <Lobby onConnect={handleConnect} myId={myId} user={user} />
+              <Lobby
+                onConnect={handleConnect}
+                onCreateGame={(settings) => {
+                  setGameSettings(settings);
+                  sessionStorage.setItem('gameSettings', JSON.stringify(settings));
+                }}
+                myId={myId}
+                user={user}
+              />
+
             )}
           </>
         )}

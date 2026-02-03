@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './VideoChat.css';
 
 export default function VideoChat({
@@ -29,6 +29,61 @@ export default function VideoChat({
         }
     }, [remoteStream]);
 
+    const [position, setPosition] = useState({ x: window.innerWidth - 420, y: window.innerHeight - 320 });
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+    const dragRef = useRef(null);
+
+    // Initial position adjustment for mobile
+    useEffect(() => {
+        if (window.innerWidth < 768) {
+            setPosition({ x: window.innerWidth - 150, y: window.innerHeight - 200 });
+        }
+    }, []);
+
+    const handleStart = (clientX, clientY) => {
+        setIsDragging(true);
+        const rect = dragRef.current.getBoundingClientRect();
+        setDragOffset({
+            x: clientX - rect.left,
+            y: clientY - rect.top
+        });
+    };
+
+    const handleMove = (clientX, clientY) => {
+        if (isDragging) {
+            setPosition({
+                x: clientX - dragOffset.x,
+                y: clientY - dragOffset.y
+            });
+        }
+    };
+
+    const handleEnd = () => {
+        setIsDragging(false);
+    };
+
+    // Global event listeners for drag
+    useEffect(() => {
+        const handleWindowMouseMove = (e) => handleMove(e.clientX, e.clientY);
+        const handleWindowTouchMove = (e) => handleMove(e.touches[0].clientX, e.touches[0].clientY);
+        const handleWindowUp = () => handleEnd();
+
+        if (isDragging) {
+            window.addEventListener('mousemove', handleWindowMouseMove);
+            window.addEventListener('mouseup', handleWindowUp);
+            window.addEventListener('touchmove', handleWindowTouchMove, { passive: false });
+            window.addEventListener('touchend', handleWindowUp);
+        }
+
+        return () => {
+            window.removeEventListener('mousemove', handleWindowMouseMove);
+            window.removeEventListener('mouseup', handleWindowUp);
+            window.removeEventListener('touchmove', handleWindowTouchMove);
+            window.removeEventListener('touchend', handleWindowUp);
+        };
+    }, [isDragging, dragOffset]);
+
     if (isMinimized) {
         return (
             <div className="video-chat-minimized" onClick={onToggleMinimize}>
@@ -39,7 +94,20 @@ export default function VideoChat({
     }
 
     return (
-        <div className="video-chat-container">
+        <div
+            ref={dragRef}
+            className="video-chat-container"
+            style={{
+                left: position.x,
+                top: position.y,
+                bottom: 'auto',
+                right: 'auto',
+                cursor: isDragging ? 'grabbing' : 'grab',
+                touchAction: 'none' // Prevent scrolling while dragging
+            }}
+            onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
+            onTouchStart={(e) => handleStart(e.touches[0].clientX, e.touches[0].clientY)}
+        >
             {/* Remote video (main) */}
             <div className="video-remote">
                 {remoteStream ? (
@@ -53,7 +121,7 @@ export default function VideoChat({
                     <div className="video-placeholder">
                         <div className="placeholder-content">
                             <span className="placeholder-icon">👤</span>
-                            <p>Esperando video del oponente...</p>
+                            <p>Esperando video...</p>
                         </div>
                     </div>
                 )}
@@ -77,7 +145,11 @@ export default function VideoChat({
             </div>
 
             {/* Controls */}
-            <div className="video-controls">
+            <div
+                className="video-controls"
+                onMouseDown={(e) => e.stopPropagation()} // Prevent drag on controls
+                onTouchStart={(e) => e.stopPropagation()}
+            >
                 <button
                     className={`control-btn ${!isVideoEnabled ? 'disabled' : ''}`}
                     onClick={onToggleVideo}

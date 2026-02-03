@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Ajedrez P2P</string>
+    <string name="title_activity_main">Ajedrez P2P</string>
+    <string name="package_name">com.ajedrezp2p.app</string>
+    <string name="custom_url_scheme">com.ajedrezp2p.app</string>
+    <string name="google_client_id">820986888362-qb8os5quelut2etnoiuv3jo0l3ov1pde.apps.googleusercontent.com</string>
+</resources>
