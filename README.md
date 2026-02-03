@@ -13,7 +13,7 @@ No necesitas instalar nada. Accede directamente desde tu navegador:
 
 ### 📱 Versión Android
 Disfruta de la experiencia completa con notificaciones y rendimiento optimizado:
-📦 **[Descargar APK (Próximamente)](https://github.com/Taladro678/ajedrez-p2p/releases)**
+📦 **[Descargar APK](https://github.com/Taladro678/ajedrez-p2p/releases)**
 *Nota: Una vez instalada, la app se actualiza sola gracias a nuestro sistema OTA.*
 
 ---
